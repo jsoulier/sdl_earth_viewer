@@ -26,6 +26,9 @@ add_subdirectory(lib/imgui)
 add_subdirectory(lib/json)
 add_executable(sdl_earth WIN32
     src/main.cpp
+    src/prepare_renderer_resources.cpp
+    src/task_processor.cpp
+    src/tileset.cpp
 )
 target_link_libraries(sdl_earth PRIVATE
     Cesium3DTilesSelection
@@ -71,6 +74,8 @@ target_precompile_headers(sdl_earth PRIVATE
     <iterator>
     <limits>
     <nlohmann/json.hpp>
+    <spdlog/sinks/base_sink.h>
+    <spdlog/spdlog.h>
     <string>
     <string_view>
     <thread>
