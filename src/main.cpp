@@ -11,6 +11,7 @@
 #include "task_processor.hpp"
 #include "prepare_renderer_resources.hpp"
 #include "tileset.hpp"
+#include "camera.hpp"
 
 static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
 
@@ -18,6 +19,7 @@ static SDL_Window* window;
 static SDL_GPUDevice* device;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
 static std::shared_ptr<SDLTileset> tileset;
+static SDLCamera camera;
 static uint64_t time1;
 static uint64_t time2;
 static float dt;
@@ -62,6 +64,11 @@ static bool Init()
     SDL_ShowWindow(window);
     SDL_SetWindowResizable(window, true);
     SDL_FlashWindow(window, SDL_FLASH_BRIEFLY);
+    {
+        int w, h;
+        SDL_GetWindowSize(window, &w, &h);
+        camera.Resize((uint32_t)w, (uint32_t)h);
+    }
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -108,6 +115,7 @@ static bool Poll()
     while (SDL_PollEvent(&event))
     {
         ImGui_ImplSDL3_ProcessEvent(&event);
+        camera.Handle(event);
         switch (event.type)
         {
         case SDL_EVENT_QUIT:
@@ -119,10 +127,45 @@ static bool Poll()
 
 static void Update()
 {
+
+}
+
+static bool Resize(uint32_t width, uint32_t height)
+{
+    camera.Resize(width, height);
+    return true;
 }
 
 static void Render()
 {
+    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device);
+    if (!commandBuffer)
+    {
+        SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
+        return;
+    }
+    SDL_GPUTexture* swapchainTexture;
+    uint32_t width;
+    uint32_t height;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, &width, &height))
+    {
+        SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
+        SDL_CancelGPUCommandBuffer(commandBuffer);
+        return;
+    }
+    if (!swapchainTexture || !width || !height)
+    {
+        // not an error
+        SDL_SubmitGPUCommandBuffer(commandBuffer);
+        return;
+    }
+    if ((camera.GetWidth() != width || camera.GetHeight() != height) && !Resize(width, height))
+    {
+        SDL_Log("Failed to create color texture: %s", SDL_GetError());
+        SDL_SubmitGPUCommandBuffer(commandBuffer);
+        return;
+    }
+    SDL_SubmitGPUCommandBuffer(commandBuffer);
 }
 
 int main(int argc, char** argv)

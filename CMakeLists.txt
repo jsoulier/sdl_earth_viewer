@@ -25,6 +25,7 @@ add_subdirectory(lib/glm)
 add_subdirectory(lib/imgui)
 add_subdirectory(lib/json)
 add_executable(sdl_earth WIN32
+    src/camera.cpp
     src/main.cpp
     src/prepare_renderer_resources.cpp
     src/task_processor.cpp
