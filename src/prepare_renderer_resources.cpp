@@ -18,6 +18,8 @@
 
 #include "prepare_renderer_resources.hpp"
 
+static constexpr int kOverlayID = 0;
+
 SDLPrepareRendererResources::SDLPrepareRendererResources(SDL_GPUDevice* device)
     : Device{device}
 {
@@ -66,6 +68,12 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             {
                 return;
             }
+            auto overlay0It = primitive.attributes.find("_CESIUMOVERLAY_0");
+            CesiumGltf::AccessorView<glm::vec2> overlay0View;
+            if (overlay0It != primitive.attributes.end())
+            {
+                overlay0View = CesiumGltf::AccessorView<glm::vec2>(model, overlay0It->second);
+            }
             SDL_GPUTransferBuffer* vertexTransferBuffer = nullptr;
             SDL_GPUBuffer* vertexBuffer = nullptr;
             uint32_t numVertices = positionView.size();
@@ -100,6 +108,14 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             for (uint32_t i = 0; i < numVertices; i++)
             {
                 vertexData[i].Position = positionView[i];
+                if (overlay0View.size() == numVertices)
+                {
+                    vertexData[i].Overlay0 = overlay0View[i];
+                }
+                else
+                {
+                    vertexData[i].Overlay0 = glm::vec2(0.0f);
+                }
             }
             SDL_UnmapGPUTransferBuffer(Device, vertexTransferBuffer);
             {
@@ -193,7 +209,7 @@ void* SDLPrepareRendererResources::prepareInMainThread(
     Cesium3DTilesSelection::Tile& tile,
     void* pLoadThreadResult)
 {
-    return nullptr;
+    return pLoadThreadResult;
 }
 
 void SDLPrepareRendererResources::free(
@@ -216,7 +232,10 @@ void SDLPrepareRendererResources::free(
         delete resources;
     };
     freeTile(pLoadThreadResult);
-    freeTile(pMainThreadResult);
+    if (pLoadThreadResult != pMainThreadResult)
+    {
+        freeTile(pMainThreadResult);
+    }
 }
 
 void SDLPrepareRendererResources::attachRasterInMainThread(
@@ -227,6 +246,26 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
     const glm::dvec2& translation,
     const glm::dvec2& scale)
 {
+    if (overlayTextureCoordinateID != kOverlayID)
+    {
+        return;
+    }
+    auto tileRenderContent = tile.getContent().getRenderContent();
+    if (!tileRenderContent)
+    {
+        return;
+    }
+    SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(tileRenderContent->getRenderResources());
+    if (!resources)
+    {
+        return;
+    }
+    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pMainThreadRendererResources);
+    if (!rasterResources)
+    {
+        return;
+    }
+    resources->RasterOverlays.push_back({rasterResources, translation, scale});
 }
 
 void SDLPrepareRendererResources::detachRasterInMainThread(
@@ -235,6 +274,29 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     const CesiumRasterOverlays::RasterOverlayTile& rasterTile,
     void* pMainThreadRendererResources) noexcept
 {
+    auto tileRenderContent = tile.getContent().getRenderContent();
+    if (!tileRenderContent)
+    {
+        return;
+    }
+    SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(tileRenderContent->getRenderResources());
+    if (!resources)
+    {
+        return;
+    }
+    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pMainThreadRendererResources);
+    if (!rasterResources)
+    {
+        return;
+    }
+    for (auto it = resources->RasterOverlays.begin(); it != resources->RasterOverlays.end(); it++)
+    {
+        if (it->RasterTile == rasterResources && overlayTextureCoordinateID == kOverlayID)
+        {
+            resources->RasterOverlays.erase(it);
+            break;
+        }
+    }
 }
 
 void* SDLPrepareRendererResources::prepareRasterInLoadThread(
@@ -319,16 +381,16 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
         SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
     }
     SDL_SubmitGPUCommandBuffer(commandBuffer);
-    SDLPrepareRendererResourcesRasterOverlayTile* resources = new SDLPrepareRendererResourcesRasterOverlayTile();
-    resources->Texture = texture;
-    return resources;
+    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = new SDLPrepareRendererResourcesRasterOverlayTile();
+    rasterResources->Texture = texture;
+    return rasterResources;
 }
 
 void* SDLPrepareRendererResources::prepareRasterInMainThread(
     CesiumRasterOverlays::RasterOverlayTile& rasterTile,
     void* pLoadThreadResult)
 {
-    return nullptr;
+    return pLoadThreadResult;
 }
 
 void SDLPrepareRendererResources::freeRaster(
@@ -342,10 +404,13 @@ void SDLPrepareRendererResources::freeRaster(
         {
             return;
         }
-        SDLPrepareRendererResourcesRasterOverlayTile* resources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(tile);
-        SDL_ReleaseGPUTexture(Device, resources->Texture);
-        delete resources;
+        SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(tile);
+        SDL_ReleaseGPUTexture(Device, rasterResources->Texture);
+        delete rasterResources;
     };
     freeOverlayTile(pLoadThreadResult);
-    freeOverlayTile(pMainThreadResult);
+    if (pLoadThreadResult != pMainThreadResult)
+    {
+        freeOverlayTile(pMainThreadResult);
+    }
 }

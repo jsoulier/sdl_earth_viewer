@@ -11,6 +11,7 @@
 struct SDLPrepareRendererResourcesTileMeshVertex
 {
     glm::vec3 Position;
+    glm::vec2 Overlay0;
 };
 
 struct SDLPrepareRendererResourcesTileMesh
@@ -23,14 +24,22 @@ struct SDLPrepareRendererResourcesTileMesh
     glm::mat4 Transform;
 };
 
-struct SDLPrepareRendererResourcesTile
-{
-    std::vector<SDLPrepareRendererResourcesTileMesh> Primitives;
-};
-
 struct SDLPrepareRendererResourcesRasterOverlayTile
 {
     SDL_GPUTexture* Texture;
+};
+
+struct SDLPrepareRendererResourcesRasterOverlay
+{
+    SDLPrepareRendererResourcesRasterOverlayTile* RasterTile;
+    glm::dvec2 Translation;
+    glm::dvec2 Scale;
+};
+
+struct SDLPrepareRendererResourcesTile
+{
+    std::vector<SDLPrepareRendererResourcesTileMesh> Primitives;
+    std::vector<SDLPrepareRendererResourcesRasterOverlay> RasterOverlays;
 };
 
 class SDLPrepareRendererResources : public Cesium3DTilesSelection::IPrepareRendererResources
