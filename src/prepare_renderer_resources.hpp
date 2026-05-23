@@ -6,7 +6,6 @@
 
 #include <any>
 #include <cstdint>
-
 #include <vector>
 
 struct SDLPrepareRendererResourcesTileMeshVertex
@@ -31,15 +30,13 @@ struct SDLPrepareRendererResourcesTile
 
 struct SDLPrepareRendererResourcesRasterOverlayTile
 {
-    // add members here
+    SDL_GPUTexture* Texture;
 };
 
 class SDLPrepareRendererResources : public Cesium3DTilesSelection::IPrepareRendererResources
 {
 public:
     SDLPrepareRendererResources(SDL_GPUDevice* device);
-    ~SDLPrepareRendererResources() override;
-
     CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> prepareInLoadThread(
         const CesiumAsync::AsyncSystem& asyncSystem,
         Cesium3DTilesSelection::TileLoadResult&& tileLoadResult,
