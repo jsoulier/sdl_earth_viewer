@@ -21,6 +21,7 @@ struct SDLPrepareRendererResourcesTileMesh
     uint32_t NumVertices;
     uint32_t NumIndices;
     SDL_GPUIndexElementSize IndexElementSize;
+    glm::mat4 Transform;
 };
 
 struct SDLPrepareRendererResourcesTile

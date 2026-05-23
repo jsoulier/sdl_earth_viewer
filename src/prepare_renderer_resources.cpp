@@ -31,23 +31,24 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
     const glm::dmat4& transform,
     const std::any& rendererOptions)
 {
+    auto nullFuture = asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
     CesiumGltf::Model* rootModel = std::get_if<CesiumGltf::Model>(&tileLoadResult.contentKind);
     if (!rootModel)
     {
-        return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+        return nullFuture;
     }
     SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(Device);
     if (!commandBuffer)
     {
         SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
-        return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+        return nullFuture;
     }
     SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
     if (!copyPass)
     {
         SDL_Log("Failed to begin copy pass: %s", SDL_GetError());
         SDL_CancelGPUCommandBuffer(commandBuffer);
-        return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
+        return nullFuture;
     }
     SDLPrepareRendererResourcesTile* resources = new SDLPrepareRendererResourcesTile();
     rootModel->forEachPrimitiveInScene(-1, [&](
@@ -136,7 +137,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 }
                 if (indexTransferBuffer && indexBuffer)
                 {
-                    uint32_t* indexData = static_cast<uint32_t*>(SDL_MapGPUTransferBuffer(Device, indexTransferBuffer, false));
+                    indexData = static_cast<uint32_t*>(SDL_MapGPUTransferBuffer(Device, indexTransferBuffer, false));
                     if (indexData)
                     {
                         for (uint32_t i = 0; i < numIndices; i++)
@@ -177,11 +178,16 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 indexBuffer,
                 numVertices,
                 numIndices,
-                indexElementSize
+                indexElementSize,
+                glm::mat4(transform),
             });
         });
     SDL_EndGPUCopyPass(copyPass);
     SDL_SubmitGPUCommandBuffer(commandBuffer);
+    if (resources->Primitives.empty())
+    {
+        SDL_Log("Failed to prepare tile");
+    }
     return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), resources});
 }
 
@@ -190,7 +196,7 @@ void* SDLPrepareRendererResources::prepareInMainThread(
     void* pLoadThreadResult)
 {
     // Noop
-    return pLoadThreadResult;
+    return nullptr;
 }
 
 void SDLPrepareRendererResources::free(
@@ -198,11 +204,14 @@ void SDLPrepareRendererResources::free(
     void* pLoadThreadResult,
     void* pMainThreadResult) noexcept
 {
-    void* pResult = pMainThreadResult ? pMainThreadResult : pLoadThreadResult;
-    if (pResult)
+    auto freeTile = [this](void* tile)
     {
-        SDLPrepareRendererResourcesTile* pResources = static_cast<SDLPrepareRendererResourcesTile*>(pResult);
-        for (auto& primitive : pResources->Primitives)
+        if (!tile)
+        {
+            return;
+        }
+        SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(tile);
+        for (auto& primitive : resources->Primitives)
         {
             if (primitive.VertexBuffer)
             {
@@ -213,8 +222,10 @@ void SDLPrepareRendererResources::free(
                 SDL_ReleaseGPUBuffer(Device, primitive.IndexBuffer);
             }
         }
-        delete pResources;
-    }
+        delete resources;
+    };
+    freeTile(pLoadThreadResult);
+    freeTile(pMainThreadResult);
 }
 
 void SDLPrepareRendererResources::attachRasterInMainThread(
@@ -239,7 +250,8 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
     CesiumGltf::ImageAsset& image,
     const std::any& rendererOptions)
 {
-    return new SDLPrepareRendererResourcesRasterOverlayTile();
+    SDLPrepareRendererResourcesRasterOverlayTile* resources = new SDLPrepareRendererResourcesRasterOverlayTile();
+    return resources;
 }
 
 void* SDLPrepareRendererResources::prepareRasterInMainThread(
@@ -247,7 +259,7 @@ void* SDLPrepareRendererResources::prepareRasterInMainThread(
     void* pLoadThreadResult)
 {
     // Noop
-    return pLoadThreadResult;
+    return nullptr;
 }
 
 void SDLPrepareRendererResources::freeRaster(
@@ -255,9 +267,12 @@ void SDLPrepareRendererResources::freeRaster(
     void* pLoadThreadResult,
     void* pMainThreadResult) noexcept
 {
-    void* pResult = pMainThreadResult ? pMainThreadResult : pLoadThreadResult;
-    if (pResult)
+    if (pLoadThreadResult)
     {
-        delete static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pResult);
+        delete static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pLoadThreadResult);
+    }
+    if (pMainThreadResult)
+    {
+        delete static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pMainThreadResult);
     }
 }
