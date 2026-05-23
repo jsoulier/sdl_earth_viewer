@@ -46,6 +46,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
     if (!copyPass)
     {
         SDL_Log("Failed to begin copy pass: %s", SDL_GetError());
+        SDL_CancelGPUCommandBuffer(commandBuffer);
         return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
     }
     SDLPrepareRendererResourcesTile* resources = new SDLPrepareRendererResourcesTile();
@@ -69,6 +70,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             SDL_GPUTransferBuffer* vertexTransferBuffer = nullptr;
             SDL_GPUBuffer* vertexBuffer = nullptr;
             uint32_t numVertices = positionView.size();
+            SDLPrepareRendererResourcesTileMeshVertex* vertexData = nullptr;
             {
                 SDL_GPUTransferBufferCreateInfo info{};
                 info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
@@ -83,14 +85,17 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             }
             if (!vertexTransferBuffer || !vertexBuffer)
             {
-                SDL_Log("Failed to create transfer buffer: %s", SDL_GetError());
+                SDL_Log("Failed to create vertex buffer(s): %s", SDL_GetError());
+                SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+                SDL_ReleaseGPUBuffer(Device, vertexBuffer);
                 return;
             }
-            SDLPrepareRendererResourcesTileMeshVertex* vertexData =
-                static_cast<SDLPrepareRendererResourcesTileMeshVertex*>(SDL_MapGPUTransferBuffer(Device, vertexTransferBuffer, false));
+            vertexData = static_cast<SDLPrepareRendererResourcesTileMeshVertex*>(SDL_MapGPUTransferBuffer(Device, vertexTransferBuffer, false));
             if (!vertexData)
             {
-                SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
+                SDL_Log("Failed to map vertex transfer buffer: %s", SDL_GetError());
+                SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+                SDL_ReleaseGPUBuffer(Device, vertexBuffer);
                 return;
             }
             for (uint32_t i = 0; i < numVertices; i++)
@@ -107,15 +112,73 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 SDL_UploadToGPUBuffer(copyPass, &location, &region, false);
                 SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
             }
+            SDL_GPUTransferBuffer* indexTransferBuffer = nullptr;
             SDL_GPUBuffer* indexBuffer = nullptr;
             uint32_t numIndices = 0;
+            uint32_t* indexData = nullptr;
             SDL_GPUIndexElementSize indexElementSize = SDL_GPU_INDEXELEMENTSIZE_16BIT;
             CesiumGltf::AccessorView<uint32_t> indexView(model, primitive.indices);
             if (indexView.size() > 0)
             {
                 numIndices = static_cast<uint32_t>(indexView.size());
-                // keep going here
+                indexElementSize = SDL_GPU_INDEXELEMENTSIZE_32BIT;
+                {
+                    SDL_GPUTransferBufferCreateInfo info{};
+                    info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+                    info.size = numIndices * sizeof(uint32_t);
+                    indexTransferBuffer = SDL_CreateGPUTransferBuffer(Device, &info);
+                }
+                {
+                    SDL_GPUBufferCreateInfo info{};
+                    info.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+                    info.size = numIndices * sizeof(uint32_t);
+                    indexBuffer = SDL_CreateGPUBuffer(Device, &info);
+                }
+                if (indexTransferBuffer && indexBuffer)
+                {
+                    uint32_t* indexData = static_cast<uint32_t*>(SDL_MapGPUTransferBuffer(Device, indexTransferBuffer, false));
+                    if (indexData)
+                    {
+                        for (uint32_t i = 0; i < numIndices; i++)
+                        {
+                            indexData[i] = indexView[i];
+                        }
+                        SDL_UnmapGPUTransferBuffer(Device, indexTransferBuffer);
+                        {
+                            SDL_GPUTransferBufferLocation location{};
+                            location.transfer_buffer = indexTransferBuffer;
+                            SDL_GPUBufferRegion region{};
+                            region.buffer = indexBuffer;
+                            region.size = numIndices * sizeof(uint32_t);
+                            SDL_UploadToGPUBuffer(copyPass, &location, &region, false);
+                            SDL_ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
+                        }
+                    }
+                    else
+                    {
+                        SDL_Log("Failed to map index transfer buffer: %s", SDL_GetError());
+                    }
+                }
+                else
+                {
+                    SDL_Log("Failed to create index buffer(s): %s", SDL_GetError());
+                }
+                if (!indexTransferBuffer || !indexBuffer || !indexData)
+                {
+                    SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+                    SDL_ReleaseGPUBuffer(Device, vertexBuffer);
+                    SDL_ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
+                    SDL_ReleaseGPUBuffer(Device, indexBuffer);
+                    return;
+                }
             }
+            resources->Primitives.push_back({
+                vertexBuffer,
+                indexBuffer,
+                numVertices,
+                numIndices,
+                indexElementSize
+            });
         });
     SDL_EndGPUCopyPass(copyPass);
     SDL_SubmitGPUCommandBuffer(commandBuffer);
