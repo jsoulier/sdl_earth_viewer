@@ -17,8 +17,6 @@
 #include "task_processor.hpp"
 #include "tileset.hpp"
 
-static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
-
 static std::string GetIonToken(const std::filesystem::path& path) 
 {
     std::ifstream file(path);
@@ -42,18 +40,9 @@ static std::string GetIonToken(const std::filesystem::path& path)
 }
     
 SDLTilesetConfig::SDLTilesetConfig()
-: IonAssetID(-1)
-, IonImageryID(-1)
+    : IonAssetID{-1}
+    , IonImageryID{-1}
 {
-    const std::filesystem::path homeFolder = SDL_GetUserFolder(SDL_FOLDER_HOME);
-    if (!homeFolder.empty())
-    {
-        IonTokenPath = homeFolder / kDefaultIonTokenFileName;
-    }
-    else
-    {
-        SDL_Log("Failed to get home folder: %s", SDL_GetError());
-    }
 }
 
 std::shared_ptr<SDLTileset> SDLTileset::Create(const SDLTilesetConfig& config)

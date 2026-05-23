@@ -4,13 +4,40 @@
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
 
+#include <any>
 #include <cstdint>
+
+#include <vector>
+
+struct SDLPrepareRendererResourcesTileMeshVertex
+{
+    glm::vec3 Position;
+};
+
+struct SDLPrepareRendererResourcesTileMesh
+{
+    SDL_GPUBuffer* VertexBuffer;
+    SDL_GPUBuffer* IndexBuffer;
+    uint32_t NumVertices;
+    uint32_t NumIndices;
+    SDL_GPUIndexElementSize IndexElementSize;
+};
+
+struct SDLPrepareRendererResourcesTile
+{
+    std::vector<SDLPrepareRendererResourcesTileMesh> Primitives;
+};
+
+struct SDLPrepareRendererResourcesRasterOverlayTile
+{
+    // add members here
+};
 
 class SDLPrepareRendererResources : public Cesium3DTilesSelection::IPrepareRendererResources
 {
 public:
-    SDLPrepareRendererResources();
-    ~SDLPrepareRendererResources() override = default;
+    SDLPrepareRendererResources(SDL_GPUDevice* device);
+    ~SDLPrepareRendererResources() override;
 
     CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> prepareInLoadThread(
         const CesiumAsync::AsyncSystem& asyncSystem,
@@ -46,4 +73,7 @@ public:
         const CesiumRasterOverlays::RasterOverlayTile& rasterTile,
         void* pLoadThreadResult,
         void* pMainThreadResult) noexcept override;
+
+private:
+    SDL_GPUDevice* Device;
 };

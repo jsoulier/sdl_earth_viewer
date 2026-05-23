@@ -60,6 +60,7 @@ target_precompile_headers(sdl_earth PRIVATE
     <CesiumRasterOverlays/IonRasterOverlay.h>
     <CesiumRasterOverlays/RasterOverlayTile.h>
     <CesiumUtility/CreditSystem.h>
+    <any>
     <algorithm>
     <array>
     <cmath>
@@ -71,6 +72,9 @@ target_precompile_headers(sdl_earth PRIVATE
     <glm/glm.hpp>
     <glm/gtc/matrix_transform.hpp>
     <glm/gtc/type_ptr.hpp>
+    <imgui.h>
+    <imgui_impl_sdl3.h>
+    <imgui_impl_sdlgpu3.h>
     <iterator>
     <limits>
     <nlohmann/json.hpp>
