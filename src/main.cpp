@@ -60,7 +60,7 @@ static bool CreateTilesetPipeline()
     info.depth_stencil_state.enable_depth_write = true;
     info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_LESS;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE;
+    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE; // TODO: test on my end
     if (info.vertex_shader && info.fragment_shader)
     {
         tilesetPipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
@@ -369,13 +369,20 @@ static void Render()
                 for (const SDLPrepareRendererResourcesTileMesh& primitive : resources->Primitives)
                 {
                     SDL_GPUBufferBinding vertexBinding{};
-                    SDL_GPUBufferBinding indexBinding{};
                     vertexBinding.buffer = primitive.VertexBuffer;
-                    indexBinding.buffer = primitive.IndexBuffer;
                     SDL_PushGPUVertexUniformData(commandBuffer, 2, &primitive.Transform, sizeof(glm::mat4));
                     SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
-                    SDL_BindGPUIndexBuffer(renderPass, &indexBinding, primitive.IndexElementSize);
-                    SDL_DrawGPUIndexedPrimitives(renderPass, primitive.NumIndices, 1, 0, 0, 0);
+                    if (primitive.IndexBuffer)
+                    {
+                        SDL_GPUBufferBinding indexBinding{};
+                        indexBinding.buffer = primitive.IndexBuffer;
+                        SDL_BindGPUIndexBuffer(renderPass, &indexBinding, primitive.IndexElementSize);
+                        SDL_DrawGPUIndexedPrimitives(renderPass, primitive.NumIndices, 1, 0, 0, 0);
+                    }
+                    else
+                    {
+                        SDL_DrawGPUPrimitives(renderPass, primitive.NumVertices, 1, 0, 0);
+                    }
                 }
             }
         }

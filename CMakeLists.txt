@@ -24,6 +24,77 @@ add_subdirectory(lib/cesium-native)
 add_subdirectory(lib/glm)
 add_subdirectory(lib/imgui)
 add_subdirectory(lib/json)
+add_executable(sdl_earth WIN32
+    src/camera.cpp
+    src/debug_group.cpp
+    src/main.cpp
+    src/prepare_renderer_resources.cpp
+    src/shader.cpp
+    src/task_processor.cpp
+    src/tileset.cpp
+)
+target_link_libraries(sdl_earth PRIVATE
+    Cesium3DTilesSelection
+    CesiumAsync
+    CesiumCurl
+    CesiumGeometry
+    CesiumGeospatial
+    CesiumQuantizedMeshTerrain
+    CesiumUtility
+    SDL3::SDL3
+    glm::glm
+    imgui
+    nlohmann_json
+)
+target_compile_definitions(sdl_earth PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
+set_target_properties(sdl_earth PROPERTIES CXX_STANDARD 23)
+target_precompile_headers(sdl_earth PRIVATE
+    <Cesium3DTilesSelection/BoundingVolume.h>
+    <Cesium3DTilesSelection/IPrepareRendererResources.h>
+    <Cesium3DTilesSelection/Tile.h>
+    <Cesium3DTilesSelection/Tileset.h>
+    <Cesium3DTilesSelection/TilesetExternals.h>
+    <Cesium3DTilesSelection/ViewState.h>
+    <CesiumAsync/AsyncSystem.h>
+    <CesiumAsync/ITaskProcessor.h>
+    <CesiumCurl/CurlAssetAccessor.h>
+    <CesiumGltf/AccessorView.h>
+    <CesiumGltf/Model.h>
+    <CesiumRasterOverlays/IonRasterOverlay.h>
+    <CesiumRasterOverlays/RasterOverlayTile.h>
+    <CesiumUtility/CreditSystem.h>
+    <SDL3/SDL.h>
+    <algorithm>
+    <any>
+    <array>
+    <cmath>
+    <cstdint>
+    <cstring>
+    <exception>
+    <filesystem>
+    <format>
+    <fstream>
+    <functional>
+    <glm/glm.hpp>
+    <glm/gtc/matrix_transform.hpp>
+    <glm/gtc/type_ptr.hpp>
+    <imgui.h>
+    <imgui_impl_sdl3.h>
+    <imgui_impl_sdlgpu3.h>
+    <iterator>
+    <limits>
+    <memory>
+    <mutex>
+    <nlohmann/json.hpp>
+    <spdlog/sinks/base_sink.h>
+    <spdlog/spdlog.h>
+    <string>
+    <string_view>
+    <thread>
+    <utility>
+    <variant>
+    <vector>
+)
 
 find_program(SHADERCROSS shadercross)
 function(add_shader FILE)
@@ -75,73 +146,5 @@ function(add_shader FILE)
     endif()
     package(${JSON})
 endfunction()
-
-add_executable(sdl_earth WIN32
-    src/camera.cpp
-    src/debug_group.cpp
-    src/main.cpp
-    src/prepare_renderer_resources.cpp
-    src/shader.cpp
-    src/task_processor.cpp
-    src/tileset.cpp
-)
-
 add_shader(tileset.vert)
 add_shader(tileset.frag)
-
-target_link_libraries(sdl_earth PRIVATE
-    Cesium3DTilesSelection
-    CesiumAsync
-    CesiumCurl
-    CesiumGeometry
-    CesiumGeospatial
-    CesiumQuantizedMeshTerrain
-    CesiumUtility
-    SDL3::SDL3
-    glm::glm
-    imgui
-    nlohmann_json
-)
-target_compile_definitions(sdl_earth PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
-set_target_properties(sdl_earth PROPERTIES CXX_STANDARD 23)
-target_precompile_headers(sdl_earth PRIVATE
-    <Cesium3DTilesSelection/BoundingVolume.h>
-    <Cesium3DTilesSelection/IPrepareRendererResources.h>
-    <Cesium3DTilesSelection/Tile.h>
-    <Cesium3DTilesSelection/Tileset.h>
-    <Cesium3DTilesSelection/TilesetExternals.h>
-    <Cesium3DTilesSelection/ViewState.h>
-    <CesiumAsync/AsyncSystem.h>
-    <CesiumAsync/ITaskProcessor.h>
-    <CesiumCurl/CurlAssetAccessor.h>
-    <CesiumGltf/AccessorView.h>
-    <CesiumGltf/Model.h>
-    <CesiumRasterOverlays/IonRasterOverlay.h>
-    <CesiumRasterOverlays/RasterOverlayTile.h>
-    <CesiumUtility/CreditSystem.h>
-    <any>
-    <algorithm>
-    <array>
-    <cmath>
-    <cstdint>
-    <exception>
-    <filesystem>
-    <format>
-    <fstream>
-    <glm/glm.hpp>
-    <glm/gtc/matrix_transform.hpp>
-    <glm/gtc/type_ptr.hpp>
-    <imgui.h>
-    <imgui_impl_sdl3.h>
-    <imgui_impl_sdlgpu3.h>
-    <iterator>
-    <limits>
-    <nlohmann/json.hpp>
-    <spdlog/sinks/base_sink.h>
-    <spdlog/spdlog.h>
-    <string>
-    <string_view>
-    <thread>
-    <utility>
-    <vector>
-)

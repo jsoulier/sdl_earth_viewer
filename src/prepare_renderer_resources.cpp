@@ -142,6 +142,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 SDL_UploadToGPUBuffer(copyPass, &location, &region, false);
             }
             SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
+            vertexTransferBuffer = nullptr;
             SDL_GPUTransferBuffer* indexTransferBuffer = nullptr;
             SDL_GPUBuffer* indexBuffer = nullptr;
             uint32_t numIndices = 0;
@@ -151,16 +152,16 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             if (indexAccessor)
             {
                 numIndices = static_cast<uint32_t>(indexAccessor->count);
-                uint32_t stride = 2;
+                uint32_t stride = 0;
                 if (indexAccessor->componentType == CesiumGltf::Accessor::ComponentType::UNSIGNED_INT)
                 {
                     indexElementSize = SDL_GPU_INDEXELEMENTSIZE_32BIT;
-                    stride = 4;
+                    stride = sizeof(uint32_t);
                 }
                 else
                 {
                     indexElementSize = SDL_GPU_INDEXELEMENTSIZE_16BIT;
-                    stride = 2;
+                    stride = sizeof(uint16_t);
                 }
                 {
                     SDL_GPUTransferBufferCreateInfo info{};
@@ -221,7 +222,6 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 }
                 if (!indexTransferBuffer || !indexBuffer || !indexData)
                 {
-                    SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
                     SDL_ReleaseGPUBuffer(Device, vertexBuffer);
                     SDL_ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
                     SDL_ReleaseGPUBuffer(Device, indexBuffer);
@@ -348,8 +348,9 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
     CesiumGltf::ImageAsset& image,
     const std::any& rendererOptions)
 {
-    if (image.width == 0 || image.height == 0 || image.bytesPerChannel != 1)
+    if (image.width == 0 || image.height == 0 || image.bytesPerChannel != 1 || image.pixelData.empty())
     {
+        SDL_Log("Tried to prepare an invalid image");
         return nullptr;
     }
     if (image.channels != 4)
@@ -412,6 +413,7 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
         SDL_CancelGPUCommandBuffer(commandBuffer);
         SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
         SDL_ReleaseGPUTexture(Device, texture);
+        return nullptr;
     }
     {
         SDL_GPUTextureTransferInfo info{};
