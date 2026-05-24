@@ -20,7 +20,7 @@ static constexpr double kFovY = glm::radians(45.0);
 
 SDLCamera::SDLCamera()
     : Target{0.0, 0.0, 0.0}
-    , Viewport{1, 1}
+    , Viewport{0, 0}
     , Distance{20000.0e3}
     , Pitch{0.0}
     , Yaw{0.0}
@@ -64,6 +64,11 @@ void SDLCamera::Handle(const SDL_Event& event)
 void SDLCamera::Resize(uint32_t width, uint32_t height)
 {
     Viewport = {width, height};
+}
+
+bool SDLCamera::IsValid() const
+{
+    return Viewport.x != 0 && Viewport.y != 0;
 }
 
 Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const

@@ -53,7 +53,10 @@ SDLTileset::SDLTileset()
 
 void SDLTileset::Update(const SDLCamera& camera)
 {
-    Tileset->updateViewGroup(Tileset->getDefaultViewGroup(), {camera.GetViewState()});
+    if (camera.IsValid())
+    {
+        Tileset->updateViewGroup(Tileset->getDefaultViewGroup(), {camera.GetViewState()});
+    }
     Tileset->loadTiles();
     AsyncSystem.dispatchMainThreadTasks();
 }

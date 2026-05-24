@@ -108,11 +108,6 @@ static bool Init()
     SDL_SetWindowResizable(window, true);
     SDL_FlashWindow(window, SDL_FLASH_BRIEFLY);
     {
-        int w, h;
-        SDL_GetWindowSize(window, &w, &h);
-        camera.Resize((uint32_t)w, (uint32_t)h);
-    }
-    {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui_ImplSDL3_InitForSDLGPU(window);
@@ -190,10 +185,7 @@ static void Update()
 static bool Resize(uint32_t width, uint32_t height)
 {
     camera.Resize(width, height);
-    if (depthTexture)
-    {
-        SDL_ReleaseGPUTexture(device, depthTexture);
-    }
+    SDL_ReleaseGPUTexture(device, depthTexture);
     SDL_GPUTextureCreateInfo info{};
     info.type = SDL_GPU_TEXTURETYPE_2D;
     info.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;

@@ -10,6 +10,7 @@ public:
     SDLCamera();
     void Handle(const SDL_Event& event);
     void Resize(uint32_t width, uint32_t height);
+    bool IsValid() const;
     Cesium3DTilesSelection::ViewState GetViewState() const;
     glm::dmat4 GetViewMatrix() const;
     glm::dmat4 GetProjMatrix() const;

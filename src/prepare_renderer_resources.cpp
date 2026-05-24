@@ -200,7 +200,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
     SDL_SubmitGPUCommandBuffer(commandBuffer);
     if (resources->Primitives.empty())
     {
-        SDL_Log("Failed to prepare tile");
+        SDL_Log("Tile has no primitives");
     }
     return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), resources});
 }
