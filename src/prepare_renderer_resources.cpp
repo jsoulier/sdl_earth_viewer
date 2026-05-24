@@ -381,9 +381,9 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
         region.h = image.height;
         region.d = 1;
         SDL_UploadToGPUTexture(copyPass, &info, &region, false);
-        SDL_EndGPUCopyPass(copyPass);
-        SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
     }
+    SDL_EndGPUCopyPass(copyPass);
+    SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
     SDL_SubmitGPUCommandBuffer(commandBuffer);
     return texture;
 }

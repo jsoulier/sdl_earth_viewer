@@ -5,6 +5,7 @@
 #include <imgui_impl_sdlgpu3.h>
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 
@@ -69,6 +70,89 @@ static bool CreateTilesetPipeline()
     return tilesetPipeline != nullptr;
 }
 
+static bool CreateDefaultRasterOverlay()
+{
+    static constexpr uint32_t kWhite = 0xFFFFFFFF;
+    {
+        SDL_GPUTextureCreateInfo info{};
+        info.type = SDL_GPU_TEXTURETYPE_2D;
+        info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        info.width = 1;
+        info.height = 1;
+        info.layer_count_or_depth = 1;
+        info.num_levels = 1;
+        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+        info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        defaultRasterTexture = SDL_CreateGPUTexture(device, &info);
+        if (!defaultRasterTexture)
+        {
+            SDL_Log("Failed to create raster texture: %s", SDL_GetError());
+            return false;
+        }
+    }
+    SDL_GPUTransferBuffer* transferBuffer = nullptr;
+    {
+        SDL_GPUTransferBufferCreateInfo info{};
+        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        info.size = sizeof(kWhite);
+        transferBuffer = SDL_CreateGPUTransferBuffer(device, &info);
+        if (!transferBuffer)
+        {
+            SDL_Log("Failed to create transfer buffer: %s", SDL_GetError());
+            return false;
+        }
+    }
+    void* data = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+    if (!data)
+    {
+        SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
+        return false;
+    }
+    std::memcpy(data, &kWhite, sizeof(kWhite));
+    SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device);
+    if (!commandBuffer)
+    {
+        SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
+        return false;
+    }
+    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
+    if (!copyPass)
+    {
+        SDL_Log("Failed to begin copy pass: %s", SDL_GetError());
+        return false;
+    }
+    {
+        SDL_GPUTextureTransferInfo info{};
+        info.transfer_buffer = transferBuffer;
+        SDL_GPUTextureRegion region{};
+        region.texture = defaultRasterTexture;
+        region.w = 1;
+        region.h = 1;
+        region.d = 1;
+        SDL_UploadToGPUTexture(copyPass, &info, &region, false);
+    }
+    SDL_EndGPUCopyPass(copyPass);
+    SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+    SDL_SubmitGPUCommandBuffer(commandBuffer);
+    {
+        SDL_GPUSamplerCreateInfo info{};
+        info.min_filter = SDL_GPU_FILTER_LINEAR;
+        info.mag_filter = SDL_GPU_FILTER_LINEAR;
+        info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        defaultRasterSampler = SDL_CreateGPUSampler(device, &info);
+        if (!defaultRasterSampler)
+        {
+            SDL_Log("Failed to create raster sampler: %s", SDL_GetError());
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool Init()
 {
 #ifndef NDEBUG
@@ -118,60 +202,17 @@ static bool Init()
         info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(device, window);
         ImGui_ImplSDLGPU3_Init(&info);
     }
-    prepareRendererResources = std::make_shared<SDLPrepareRendererResources>(device);
-
-    {
-        SDL_GPUTextureCreateInfo info{};
-        info.type = SDL_GPU_TEXTURETYPE_2D;
-        info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-        info.width = 1;
-        info.height = 1;
-        info.layer_count_or_depth = 1;
-        info.num_levels = 1;
-        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
-        info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-        defaultRasterTexture = SDL_CreateGPUTexture(device, &info);
-
-        SDL_GPUTransferBufferCreateInfo tbInfo{};
-        tbInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-        tbInfo.size = 4;
-        SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device, &tbInfo);
-        void* data = SDL_MapGPUTransferBuffer(device, tb, false);
-        if (data) {
-            uint32_t white = 0xFFFFFFFF;
-            memcpy(data, &white, 4);
-            SDL_UnmapGPUTransferBuffer(device, tb);
-
-            SDL_GPUCommandBuffer* cb = SDL_AcquireGPUCommandBuffer(device);
-            SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(cb);
-            SDL_GPUTextureTransferInfo tti{};
-            tti.transfer_buffer = tb;
-            SDL_GPUTextureRegion tr{};
-            tr.texture = defaultRasterTexture;
-            tr.w = 1;
-            tr.h = 1;
-            tr.d = 1;
-            SDL_UploadToGPUTexture(cp, &tti, &tr, false);
-            SDL_EndGPUCopyPass(cp);
-            SDL_SubmitGPUCommandBuffer(cb);
-        }
-        SDL_ReleaseGPUTransferBuffer(device, tb);
-
-        SDL_GPUSamplerCreateInfo samplerInfo{};
-        samplerInfo.min_filter = SDL_GPU_FILTER_LINEAR;
-        samplerInfo.mag_filter = SDL_GPU_FILTER_LINEAR;
-        samplerInfo.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-        samplerInfo.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        samplerInfo.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        samplerInfo.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        defaultRasterSampler = SDL_CreateGPUSampler(device, &samplerInfo);
-    }
-
     if (!CreateTilesetPipeline())
     {
         SDL_Log("Failed to create tileset pipeline");
         return false;
     }
+    if (!CreateDefaultRasterOverlay())
+    {
+        SDL_Log("Failed to create default raster overlay");
+        return false;
+    }
+    prepareRendererResources = std::make_shared<SDLPrepareRendererResources>(device);
     {
         SDLTilesetConfig config;
         config.IonTokenPath = SDL_GetUserFolder(SDL_FOLDER_HOME);
@@ -276,6 +317,7 @@ static void Render()
         SDL_SubmitGPUCommandBuffer(commandBuffer);
         return;
     }
+    const Cesium3DTilesSelection::ViewUpdateResult* viewUpdateResult = nullptr;
     {
         DebugGroupBlock(commandBuffer, "Render::Tileset");
         SDL_GPUColorTargetInfo colorInfo{};
@@ -297,59 +339,43 @@ static void Render()
         }
         if (tileset)
         {
+            const glm::mat4 viewMatrix = glm::mat4(camera.GetViewMatrix());
+            const glm::mat4 projMatrix = glm::mat4(camera.GetProjMatrix());
             SDL_BindGPUGraphicsPipeline(renderPass, tilesetPipeline);
-            
-            struct SceneBuffer
-            {
-                glm::mat4 View;
-                glm::mat4 Proj;
-            } sceneBuffer;
-
-            sceneBuffer.View = camera.GetViewMatrix();
-            sceneBuffer.Proj = camera.GetProjMatrix();
-
-            SDL_PushGPUVertexUniformData(commandBuffer, 0, &sceneBuffer, sizeof(SceneBuffer));
-
+            SDL_PushGPUVertexUniformData(commandBuffer, 0, &viewMatrix, sizeof(viewMatrix));
+            SDL_PushGPUVertexUniformData(commandBuffer, 1, &projMatrix, sizeof(projMatrix));
             const Cesium3DTilesSelection::ViewUpdateResult& result = tileset->Update(camera);
-            for (const auto& tile : result.tilesToRenderThisFrame)
+            viewUpdateResult = &result;
+            for (const Cesium3DTilesSelection::Tile::ConstPointer& tile : result.tilesToRenderThisFrame)
             {
-                auto content = tile->getContent().getRenderContent();
+                const Cesium3DTilesSelection::TileRenderContent* content = tile->getContent().getRenderContent();
                 if (!content)
                 {
                     continue;
                 }
-                auto resources = static_cast<SDLPrepareRendererResourcesTile*>(content->getRenderResources());
+                SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(content->getRenderResources());
                 if (!resources)
                 {
                     continue;
                 }
-
-                SDL_GPUTexture* rasterTexture = defaultRasterTexture;
-                SDL_GPUSampler* rasterSampler = defaultRasterSampler;
-                if (!resources->RasterOverlays.empty() && resources->RasterOverlays[0].RasterTile && resources->RasterOverlays[0].RasterTile->Texture)
-                {
-                    rasterTexture = resources->RasterOverlays[0].RasterTile->Texture;
-                }
-
                 SDL_GPUTextureSamplerBinding samplerBinding{};
-                samplerBinding.texture = rasterTexture;
-                samplerBinding.sampler = rasterSampler;
+                samplerBinding.texture = defaultRasterTexture;
+                samplerBinding.sampler = defaultRasterSampler;
+                if (!resources->RasterOverlays.empty() && resources->RasterOverlays[0].Texture)
+                {
+                    samplerBinding.texture = defaultRasterTexture;
+                    samplerBinding.texture = resources->RasterOverlays[0].Texture;
+                }
                 SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
-
                 for (const auto& primitive : resources->Primitives)
                 {
-                    SDL_PushGPUVertexUniformData(commandBuffer, 1, &primitive.Transform, sizeof(glm::mat4));
-
                     SDL_GPUBufferBinding vertexBinding{};
-                    vertexBinding.buffer = primitive.VertexBuffer;
-                    vertexBinding.offset = 0;
-                    SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
-
                     SDL_GPUBufferBinding indexBinding{};
+                    vertexBinding.buffer = primitive.VertexBuffer;
                     indexBinding.buffer = primitive.IndexBuffer;
-                    indexBinding.offset = 0;
+                    SDL_PushGPUVertexUniformData(commandBuffer, 1, &primitive.Transform, sizeof(glm::mat4));
+                    SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
                     SDL_BindGPUIndexBuffer(renderPass, &indexBinding, primitive.IndexElementSize);
-
                     SDL_DrawGPUIndexedPrimitives(renderPass, primitive.NumIndices, 1, 0, 0, 0);
                 }
             }
@@ -366,6 +392,21 @@ static void Render()
         ImGui::Begin("Debug");
         ImGui::Text("FPS: %.1f", io.Framerate);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
+        if (viewUpdateResult)
+        {
+            ImGui::Separator();
+            ImGui::Text("Tiles to Render: %zu", viewUpdateResult->tilesToRenderThisFrame.size());
+            ImGui::Text("Tiles Visited: %u", viewUpdateResult->tilesVisited);
+            ImGui::Text("Tiles Culled: %u", viewUpdateResult->tilesCulled);
+            ImGui::Text("Tiles Occluded: %u", viewUpdateResult->tilesOccluded);
+            ImGui::Text("Max Depth Visited: %u", viewUpdateResult->maxDepthVisited);
+            ImGui::Text("Worker Queue: %d", viewUpdateResult->workerThreadTileLoadQueueLength);
+            ImGui::Text("Main Queue: %d", viewUpdateResult->mainThreadTileLoadQueueLength);
+        }
+        else
+        {
+            ImGui::TextDisabled("Failed to get ViewUpdateResult");
+        }
         ImGui::End();
         ImGui::Render();
         ImGui_ImplSDLGPU3_PrepareDrawData(ImGui::GetDrawData(), commandBuffer);

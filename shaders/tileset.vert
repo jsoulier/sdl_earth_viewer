@@ -1,10 +1,14 @@
-cbuffer SceneBuffer : register(b0, space1)
+cbuffer UniformBuffer : register(b0, space1)
 {
     float4x4 View;
+};
+
+cbuffer UniformBuffer : register(b1, space1)
+{
     float4x4 Proj;
 };
 
-cbuffer ModelBuffer : register(b1, space1)
+cbuffer UniformBuffer : register(b2, space1)
 {
     float4x4 Model;
 };
@@ -12,21 +16,20 @@ cbuffer ModelBuffer : register(b1, space1)
 struct Input
 {
     float3 Position : TEXCOORD0;
-    float2 UV : TEXCOORD1;
+    float2 TexCoord : TEXCOORD1;
 };
 
 struct Output
 {
     float4 Position : SV_Position;
-    float2 UV : TEXCOORD0;
+    float2 TexCoord : TEXCOORD0;
 };
 
 Output main(Input input)
 {
     Output output;
-    float4 worldPos = mul(Model, float4(input.Position, 1.0f));
-    float4 viewPos = mul(View, worldPos);
-    output.Position = mul(Proj, viewPos);
-    output.UV = input.UV;
+    float4 worldPosition = mul(Model, float4(input.Position, 1.0f));
+    output.Position = mul(Proj, mul(View, worldPosition));
+    output.TexCoord = input.TexCoord;
     return output;
 }
