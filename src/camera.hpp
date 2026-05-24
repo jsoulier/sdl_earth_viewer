@@ -19,6 +19,7 @@ public:
     uint32_t GetWidth() const;
     uint32_t GetHeight() const;
     double GetAspectRatio() const;
+    double GetFovX() const;
 
 private:
     glm::dvec3 Target;

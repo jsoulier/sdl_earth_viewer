@@ -59,7 +59,7 @@ static bool CreateTilesetPipeline()
     info.vertex_input_state.vertex_buffer_descriptions = vertexBuffers;
     info.depth_stencil_state.enable_depth_test = true;
     info.depth_stencil_state.enable_depth_write = true;
-    info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_LESS;
+    info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
     info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     if (info.vertex_shader && info.fragment_shader)
@@ -330,7 +330,7 @@ static void Render()
         depthInfo.load_op = SDL_GPU_LOADOP_CLEAR;
         depthInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR;
         depthInfo.store_op = SDL_GPU_STOREOP_STORE;
-        depthInfo.clear_depth = 1.0f;
+        depthInfo.clear_depth = 0.0f;
         SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorInfo, 1, &depthInfo);
         if (!renderPass)
         {
@@ -404,6 +404,9 @@ static void Render()
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui::NewFrame();
         ImGui::Begin("Debug");
+        SDL_PropertiesID properties = SDL_GetGPUDeviceProperties(device);
+        ImGui::Text("GPU: %s", SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "Unknown"));
+        ImGui::Text("Driver: %s", SDL_GetGPUDeviceDriver(device));
         ImGui::Text("FPS: %.1f", io.Framerate);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
         if (viewUpdateResult)

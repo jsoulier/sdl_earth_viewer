@@ -1,10 +1,12 @@
 #include <Cesium3DTilesSelection/ViewState.h>
+#include <CesiumGeometry/Transforms.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "camera.hpp"
 
@@ -73,22 +75,19 @@ bool SDLCamera::IsValid() const
 
 Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
 {
-    glm::dvec3 position = GetPosition();
-    glm::dvec3 direction = glm::normalize(Target - position);
-    glm::dvec3 right = glm::normalize(glm::cross(direction, kUp));
-    glm::dvec3 up = glm::normalize(glm::cross(right, direction));
-    double fovX = 2.0 * std::atan(std::tan(kFovY / 2.0) * GetAspectRatio());
-    return Cesium3DTilesSelection::ViewState(position, direction, up, glm::dvec2(Viewport), fovX, kFovY);
+    return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetProjMatrix(), glm::dvec2(Viewport));
 }
 
 glm::dmat4 SDLCamera::GetViewMatrix() const
 {
-    return glm::lookAt(GetPosition(), Target, kUp);
+    return CesiumGeometry::Transforms::createViewMatrix(GetPosition(), glm::normalize(Target - GetPosition()), kUp);
 }
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    return glm::perspective(kFovY, GetAspectRatio(), kNear, kNear * 1e8); // TODO: use Reverse-Z
+    glm::dmat4 proj = CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kNear * 1e8);
+    proj[1][1] *= -1.0; // Cesium uses Vulkan Y down, SDL expects Y up
+    return proj;
 }
 
 glm::dvec3 SDLCamera::GetPosition() const
@@ -117,4 +116,9 @@ uint32_t SDLCamera::GetHeight() const
 double SDLCamera::GetAspectRatio() const
 {
     return double(Viewport.x) / double(Viewport.y);
+}
+
+double SDLCamera::GetFovX() const
+{
+    return 2.0 * std::atan(std::tan(kFovY / 2.0) * GetAspectRatio());
 }
