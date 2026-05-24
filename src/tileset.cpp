@@ -18,6 +18,10 @@
 #include "task_processor.hpp"
 #include "tileset.hpp"
 
+static constexpr int kDefaultIonAssetID = 1;
+static constexpr int kDefaultIonImageryID = 2;
+static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
+
 static std::string GetIonToken(const std::filesystem::path& path) 
 {
     std::ifstream file(path);
@@ -41,15 +45,17 @@ static std::string GetIonToken(const std::filesystem::path& path)
 }
 
 SDLTilesetConfig::SDLTilesetConfig()
-    : IonAssetID{-1}
-    , IonImageryID{-1}
+    : IonAssetID{kDefaultIonAssetID}
+    , IonImageryID{kDefaultIonImageryID}
 {
     TilesetOptions.forbidHoles = true;
+    TilesetOptions.enableFrustumCulling = false; // TODO: figure out why their frustum culling is over-culling
 
-    // TODO: remove after issues are resolved
-    TilesetOptions.enableFrustumCulling = false;
-    TilesetOptions.enableOcclusionCulling = false;
-    TilesetOptions.enableFogCulling = false;
+    const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
+    if (home)
+    {
+        IonTokenPath = std::filesystem::path(home) / kDefaultIonTokenFileName;
+    }
 }
 
 SDLTileset::SDLTileset()

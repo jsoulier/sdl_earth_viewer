@@ -5,6 +5,7 @@ add_library(imgui
     imgui_draw.cpp
     imgui_impl_sdl3.cpp
     imgui_impl_sdlgpu3.cpp
+    imgui_stdlib.cpp
     imgui_tables.cpp
     imgui_widgets.cpp
 )

@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_sdlgpu3.h>
+#include <imgui_stdlib.h>
 
 #include <cstdint>
 #include <cstring>
@@ -17,7 +18,9 @@
 #include "task_processor.hpp"
 #include "tileset.hpp"
 
-static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
+static constexpr double kZero = 0.0;
+static constexpr double kMaxSSE = 256.0;
+static constexpr double kMaxRasterSSE = 64.0;
 
 static SDL_Window* window;
 static SDL_GPUDevice* device;
@@ -26,6 +29,7 @@ static SDL_GPUGraphicsPipeline* tilesetPipeline;
 static SDL_GPUTexture* defaultRasterTexture;
 static SDL_GPUSampler* defaultRasterSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
+static SDLTilesetConfig tilesetConfig;
 static std::shared_ptr<SDLTileset> tileset;
 static SDLCamera camera;
 static uint64_t time1;
@@ -214,19 +218,11 @@ static bool Init()
         return false;
     }
     prepareRendererResources = std::make_shared<SDLPrepareRendererResources>(device);
+    tilesetConfig.PrepareRendererResources = prepareRendererResources;
+    tileset = SDLTileset::Create(tilesetConfig);
+    if (!tileset)
     {
-        SDLTilesetConfig config;
-        config.IonTokenPath = SDL_GetUserFolder(SDL_FOLDER_HOME);
-        config.IonTokenPath /= kDefaultIonTokenFileName;
-        config.IonAssetID = 1;
-        config.IonImageryID = 2;
-        config.PrepareRendererResources = prepareRendererResources;
-        tileset = SDLTileset::Create(config);
-        if (!tileset)
-        {
-            SDL_Log("Failed to create tileset");
-            // Noop
-        }
+        SDL_Log("Failed to create tileset");
     }
     return true;
 }
@@ -398,16 +394,14 @@ static void Render()
     }
     {
         DebugGroupBlock(commandBuffer, "Render::PrepareImGui");
-        ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize.x = width;
-        io.DisplaySize.y = height;
+        ImGui_ImplSDL3_NewFrame();
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui::NewFrame();
         ImGui::Begin("Debug");
         SDL_PropertiesID properties = SDL_GetGPUDeviceProperties(device);
         ImGui::Text("GPU: %s", SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "Unknown"));
         ImGui::Text("Driver: %s", SDL_GetGPUDeviceDriver(device));
-        ImGui::Text("FPS: %.1f", io.Framerate);
+        ImGui::Text("FPS: %.1f", 1e9f / dt);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
         if (viewUpdateResult)
         {
@@ -423,6 +417,62 @@ static void Render()
         else
         {
             ImGui::TextDisabled("Failed to get ViewUpdateResult");
+        }
+        ImGui::Separator();
+        int ionAssetID = static_cast<int>(tilesetConfig.IonAssetID);
+        if (ImGui::InputInt("Ion Asset ID", &ionAssetID))
+        {
+            tilesetConfig.IonAssetID = ionAssetID;
+        }
+        int ionImageryID = static_cast<int>(tilesetConfig.IonImageryID);
+        if (ImGui::InputInt("Ion Imagery ID", &ionImageryID))
+        {
+            tilesetConfig.IonImageryID = ionImageryID;
+        }
+        std::string ionTokenPath = tilesetConfig.IonTokenPath.string();
+        if (ImGui::InputText("Ion Token Path", &ionTokenPath))
+        {
+            tilesetConfig.IonTokenPath = std::filesystem::path(ionTokenPath);
+        }
+        ImGui::Separator();
+        ImGui::DragScalar("Maximum SSE", ImGuiDataType_Double, &tilesetConfig.TilesetOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxSSE);
+        int maxTileLoads = static_cast<int>(tilesetConfig.TilesetOptions.maximumSimultaneousTileLoads);
+        if (ImGui::DragInt("Max Tile Loads", &maxTileLoads, 1.0f, 1, 256))
+        {
+            tilesetConfig.TilesetOptions.maximumSimultaneousTileLoads = static_cast<uint32_t>(maxTileLoads);
+        }
+        int loadingLimit = static_cast<int>(tilesetConfig.TilesetOptions.loadingDescendantLimit);
+        if (ImGui::DragInt("Loading Descendant Limit", &loadingLimit, 1.0f, 0, 256))
+        {
+            tilesetConfig.TilesetOptions.loadingDescendantLimit = static_cast<uint32_t>(loadingLimit);
+        }
+        ImGui::Checkbox("Forbid Holes", &tilesetConfig.TilesetOptions.forbidHoles);
+        ImGui::Checkbox("Preload Ancestors", &tilesetConfig.TilesetOptions.preloadAncestors);
+        ImGui::Checkbox("Preload Siblings", &tilesetConfig.TilesetOptions.preloadSiblings);
+        ImGui::Checkbox("Frustum Culling", &tilesetConfig.TilesetOptions.enableFrustumCulling);
+        ImGui::Checkbox("Occlusion Culling", &tilesetConfig.TilesetOptions.enableOcclusionCulling);
+        ImGui::Checkbox("Fog Culling", &tilesetConfig.TilesetOptions.enableFogCulling);
+        int64_t maxCachedMB = tilesetConfig.TilesetOptions.maximumCachedBytes / (1024 * 1024);
+        int64_t minMB = 0;
+        int64_t maxMB = 65536;
+        if (ImGui::DragScalar("Max Cache (MB)", ImGuiDataType_S64, &maxCachedMB, 1.0f, &minMB, &maxMB))
+        {
+            tilesetConfig.TilesetOptions.maximumCachedBytes = maxCachedMB * 1024 * 1024;
+        }
+        ImGui::Separator();
+        ImGui::DragInt("Raster Max Texture Size", &tilesetConfig.RasterOverlayOptions.maximumTextureSize, 1.0f, 64, 8192);
+        ImGui::DragScalar("Raster Max SSE", ImGuiDataType_Double, &tilesetConfig.RasterOverlayOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxRasterSSE);
+        if (ImGui::Button("Create Tileset"))
+        {
+            std::shared_ptr<SDLTileset> newTileset = SDLTileset::Create(tilesetConfig);
+            if (newTileset)
+            {
+                tileset = newTileset;
+            }
+            else
+            {
+                SDL_Log("Failed to create tileset");
+            }
         }
         ImGui::End();
         ImGui::Render();

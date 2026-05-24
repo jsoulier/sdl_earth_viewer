@@ -12,8 +12,9 @@ public:
     void Resize(uint32_t width, uint32_t height);
     bool IsValid() const;
     Cesium3DTilesSelection::ViewState GetViewState() const;
-    glm::dmat4 GetViewMatrix() const;
+    glm::dmat4 GetViewStateProjMatrix() const;
     glm::dmat4 GetProjMatrix() const;
+    glm::dmat4 GetViewMatrix() const;
     glm::dvec3 GetPosition() const;
     double GetDistance() const;
     uint32_t GetWidth() const;
@@ -22,8 +23,6 @@ public:
     double GetFovX() const;
 
 private:
-    glm::dmat4 GetViewStateProjMatrix() const;
-
     glm::dvec3 Target;
     glm::uvec2 Viewport;
     double Distance;

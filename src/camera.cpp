@@ -11,10 +11,12 @@
 #include "camera.hpp"
 
 static constexpr glm::dvec3 kUp = glm::dvec3(0.0, 0.0, 1.0); // Z is up in ECEF
+static constexpr glm::dmat4 kFlipY = glm::dmat4(1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
 static constexpr double kMaxPitch = glm::pi<double>() / 2.0 - 0.001;
 static constexpr double kNear = 1.0;
+static constexpr double kFar = kNear * 1e8;
 static constexpr double kEarthRadius = 6378.137e3;
-static constexpr double kMinDistance = 100.0;
+static constexpr double kMinDistanceToEarth = 100.0;
 static constexpr double kArcSpeed = 0.005;
 static constexpr double kPanSpeed = 0.001;
 static constexpr double kZoomSpeed = 0.1;
@@ -31,10 +33,6 @@ SDLCamera::SDLCamera()
 
 void SDLCamera::Handle(const SDL_Event& event)
 {
-    const glm::dvec3 position = GetPosition();
-    const glm::dvec3 forward = glm::normalize(Target - position);
-    const glm::dvec3 right = glm::normalize(glm::cross(forward, kUp));
-    const glm::dvec3 up = glm::normalize(glm::cross(right, forward));
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_MOTION:
@@ -45,18 +43,12 @@ void SDLCamera::Handle(const SDL_Event& event)
             Pitch += event.motion.yrel * kArcSpeed;
             Pitch = std::clamp(Pitch, -kMaxPitch, kMaxPitch);
         }
-        else if (event.motion.state & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
-        {
-            double panSpeed = Distance * kPanSpeed;
-            Target -= right * double(event.motion.xrel) * panSpeed;
-            Target += up * double(event.motion.yrel) * panSpeed;
-        }
         break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
     {
         Distance -= event.wheel.y * Distance * kZoomSpeed;
-        double minDistance = std::max(0.0, kEarthRadius - glm::length(Target)) + kMinDistance;
+        double minDistance = std::max(0.0, kEarthRadius - glm::length(Target)) + kMinDistanceToEarth;
         Distance = std::max(Distance, minDistance);
         break;
     }
@@ -78,16 +70,19 @@ Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
     return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetViewStateProjMatrix(), glm::dvec2(Viewport));
 }
 
-glm::dmat4 SDLCamera::GetViewMatrix() const
+glm::dmat4 SDLCamera::GetViewStateProjMatrix() const
 {
-    return CesiumGeometry::Transforms::createViewMatrix(GetPosition(), glm::normalize(Target - GetPosition()), kUp);
+    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kFar);
 }
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    glm::dmat4 proj = GetViewStateProjMatrix();
-    proj[1][1] *= -1.0; // Cesium uses Vulkan Y down, SDL expects Y up
-    return proj;
+    return kFlipY * GetViewStateProjMatrix();
+}
+
+glm::dmat4 SDLCamera::GetViewMatrix() const
+{
+    return CesiumGeometry::Transforms::createViewMatrix(GetPosition(), glm::normalize(Target - GetPosition()), kUp);
 }
 
 glm::dvec3 SDLCamera::GetPosition() const
@@ -121,9 +116,4 @@ double SDLCamera::GetAspectRatio() const
 double SDLCamera::GetFovX() const
 {
     return 2.0 * std::atan(std::tan(kFovY / 2.0) * GetAspectRatio());
-}
-
-glm::dmat4 SDLCamera::GetViewStateProjMatrix() const
-{
-    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kNear * 1e8);
 }
