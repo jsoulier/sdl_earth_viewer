@@ -18,10 +18,6 @@
 #include "task_processor.hpp"
 #include "tileset.hpp"
 
-static constexpr double kZero = 0.0;
-static constexpr double kMaxSSE = 256.0;
-static constexpr double kMaxRasterSSE = 64.0;
-
 static SDL_Window* window;
 static SDL_GPUDevice* device;
 static SDL_GPUTexture* depthTexture;
@@ -314,7 +310,6 @@ static void Render()
         SDL_SubmitGPUCommandBuffer(commandBuffer);
         return;
     }
-    const Cesium3DTilesSelection::ViewUpdateResult* viewUpdateResult = nullptr;
     {
         DebugGroupBlock(commandBuffer, "Render::Tileset");
         SDL_GPUColorTargetInfo colorInfo{};
@@ -341,7 +336,6 @@ static void Render()
             const glm::dmat4 viewProjMatrix = projMatrix * viewMatrix;
             SDL_BindGPUGraphicsPipeline(renderPass, tilesetPipeline);
             const Cesium3DTilesSelection::ViewUpdateResult& result = tileset->Update(camera);
-            viewUpdateResult = &result;
             for (const Cesium3DTilesSelection::Tile::ConstPointer& tile : result.tilesToRenderThisFrame)
             {
                 const Cesium3DTilesSelection::TileRenderContent* content = tile->getContent().getRenderContent();
@@ -403,66 +397,15 @@ static void Render()
         ImGui::Text("Driver: %s", SDL_GetGPUDeviceDriver(device));
         ImGui::Text("FPS: %.1f", 1e9f / dt);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
-        if (viewUpdateResult)
+        if (tileset)
         {
-            ImGui::Separator();
-            ImGui::Text("Tiles to Render: %zu", viewUpdateResult->tilesToRenderThisFrame.size());
-            ImGui::Text("Tiles Visited: %u", viewUpdateResult->tilesVisited);
-            ImGui::Text("Tiles Culled: %u", viewUpdateResult->tilesCulled);
-            ImGui::Text("Tiles Occluded: %u", viewUpdateResult->tilesOccluded);
-            ImGui::Text("Max Depth Visited: %u", viewUpdateResult->maxDepthVisited);
-            ImGui::Text("Worker Queue: %d", viewUpdateResult->workerThreadTileLoadQueueLength);
-            ImGui::Text("Main Queue: %d", viewUpdateResult->mainThreadTileLoadQueueLength);
+            tileset->RenderImGui();
         }
         else
         {
             ImGui::TextDisabled("Failed to get ViewUpdateResult");
         }
-        ImGui::Separator();
-        int ionAssetID = static_cast<int>(tilesetConfig.IonAssetID);
-        if (ImGui::InputInt("Ion Asset ID", &ionAssetID))
-        {
-            tilesetConfig.IonAssetID = ionAssetID;
-        }
-        int ionImageryID = static_cast<int>(tilesetConfig.IonImageryID);
-        if (ImGui::InputInt("Ion Imagery ID", &ionImageryID))
-        {
-            tilesetConfig.IonImageryID = ionImageryID;
-        }
-        std::string ionTokenPath = tilesetConfig.IonTokenPath.string();
-        if (ImGui::InputText("Ion Token Path", &ionTokenPath))
-        {
-            tilesetConfig.IonTokenPath = std::filesystem::path(ionTokenPath);
-        }
-        ImGui::Separator();
-        ImGui::DragScalar("Maximum SSE", ImGuiDataType_Double, &tilesetConfig.TilesetOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxSSE);
-        int maxTileLoads = static_cast<int>(tilesetConfig.TilesetOptions.maximumSimultaneousTileLoads);
-        if (ImGui::DragInt("Max Tile Loads", &maxTileLoads, 1.0f, 1, 256))
-        {
-            tilesetConfig.TilesetOptions.maximumSimultaneousTileLoads = static_cast<uint32_t>(maxTileLoads);
-        }
-        int loadingLimit = static_cast<int>(tilesetConfig.TilesetOptions.loadingDescendantLimit);
-        if (ImGui::DragInt("Loading Descendant Limit", &loadingLimit, 1.0f, 0, 256))
-        {
-            tilesetConfig.TilesetOptions.loadingDescendantLimit = static_cast<uint32_t>(loadingLimit);
-        }
-        ImGui::Checkbox("Forbid Holes", &tilesetConfig.TilesetOptions.forbidHoles);
-        ImGui::Checkbox("Preload Ancestors", &tilesetConfig.TilesetOptions.preloadAncestors);
-        ImGui::Checkbox("Preload Siblings", &tilesetConfig.TilesetOptions.preloadSiblings);
-        ImGui::Checkbox("Frustum Culling", &tilesetConfig.TilesetOptions.enableFrustumCulling);
-        ImGui::Checkbox("Occlusion Culling", &tilesetConfig.TilesetOptions.enableOcclusionCulling);
-        ImGui::Checkbox("Fog Culling", &tilesetConfig.TilesetOptions.enableFogCulling);
-        int64_t maxCachedMB = tilesetConfig.TilesetOptions.maximumCachedBytes / (1024 * 1024);
-        int64_t minMB = 0;
-        int64_t maxMB = 65536;
-        if (ImGui::DragScalar("Max Cache (MB)", ImGuiDataType_S64, &maxCachedMB, 1.0f, &minMB, &maxMB))
-        {
-            tilesetConfig.TilesetOptions.maximumCachedBytes = maxCachedMB * 1024 * 1024;
-        }
-        ImGui::Separator();
-        ImGui::DragInt("Raster Max Texture Size", &tilesetConfig.RasterOverlayOptions.maximumTextureSize, 1.0f, 64, 8192);
-        ImGui::DragScalar("Raster Max SSE", ImGuiDataType_Double, &tilesetConfig.RasterOverlayOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxRasterSSE);
-        if (ImGui::Button("Create Tileset"))
+        if (tilesetConfig.RenderImGui())
         {
             std::shared_ptr<SDLTileset> newTileset = SDLTileset::Create(tilesetConfig);
             if (newTileset)

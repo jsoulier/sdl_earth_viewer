@@ -21,6 +21,8 @@ class SDLTilesetConfig
 public:
     SDLTilesetConfig();
 
+    bool RenderImGui();
+
     Cesium3DTilesSelection::TilesetOptions TilesetOptions;
     CesiumRasterOverlays::RasterOverlayOptions RasterOverlayOptions;
     std::shared_ptr<SDLPrepareRendererResources> PrepareRendererResources;
@@ -35,6 +37,7 @@ public:
     SDLTileset();
     const Cesium3DTilesSelection::ViewUpdateResult& Update(const SDLCamera& camera);
     static std::shared_ptr<SDLTileset> Create(const SDLTilesetConfig& config);
+    void RenderImGui() const;
 
 private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> Tileset;
