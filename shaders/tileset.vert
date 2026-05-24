@@ -1,16 +1,6 @@
 cbuffer UniformBuffer : register(b0, space1)
 {
-    float4x4 View;
-};
-
-cbuffer UniformBuffer : register(b1, space1)
-{
-    float4x4 Proj;
-};
-
-cbuffer UniformBuffer : register(b2, space1)
-{
-    float4x4 Model;
+    float4x4 ModelViewProjection;
 };
 
 struct Input
@@ -28,8 +18,7 @@ struct Output
 Output main(Input input)
 {
     Output output;
-    float4 worldPosition = mul(Model, float4(input.Position, 1.0f));
-    output.Position = mul(Proj, mul(View, worldPosition));
+    output.Position = mul(ModelViewProjection, float4(input.Position, 1.0f));
     output.TexCoord = input.TexCoord;
     return output;
 }

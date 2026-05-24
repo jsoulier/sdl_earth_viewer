@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "camera.hpp"
+#include "config.hpp"
 #include "debug_group.hpp"
 #include "prepare_renderer_resources.hpp"
 #include "shader.hpp"
@@ -60,7 +61,7 @@ static bool CreateTilesetPipeline()
     info.depth_stencil_state.enable_depth_write = true;
     info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_LESS;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE; // TODO: test on my end
+    info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     if (info.vertex_shader && info.fragment_shader)
     {
         tilesetPipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
@@ -339,11 +340,10 @@ static void Render()
         }
         if (tileset)
         {
-            const glm::mat4 viewMatrix = glm::mat4(camera.GetViewMatrix());
-            const glm::mat4 projMatrix = glm::mat4(camera.GetProjMatrix());
+            const glm::dmat4 viewMatrix = camera.GetViewMatrix();
+            const glm::dmat4 projMatrix = camera.GetProjMatrix();
+            const glm::dmat4 viewProjMatrix = projMatrix * viewMatrix;
             SDL_BindGPUGraphicsPipeline(renderPass, tilesetPipeline);
-            SDL_PushGPUVertexUniformData(commandBuffer, 0, &viewMatrix, sizeof(viewMatrix));
-            SDL_PushGPUVertexUniformData(commandBuffer, 1, &projMatrix, sizeof(projMatrix));
             const Cesium3DTilesSelection::ViewUpdateResult& result = tileset->Update(camera);
             viewUpdateResult = &result;
             for (const Cesium3DTilesSelection::Tile::ConstPointer& tile : result.tilesToRenderThisFrame)
@@ -353,7 +353,7 @@ static void Render()
                 {
                     continue;
                 }
-                SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(content->getRenderResources());
+                const SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(content->getRenderResources());
                 if (!resources)
                 {
                     continue;
@@ -361,16 +361,24 @@ static void Render()
                 SDL_GPUTextureSamplerBinding samplerBinding{};
                 samplerBinding.texture = defaultRasterTexture;
                 samplerBinding.sampler = defaultRasterSampler;
-                if (!resources->RasterOverlays.empty() && resources->RasterOverlays[0].Texture)
+                glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                if (!resources->RasterOverlays.empty())
                 {
-                    samplerBinding.texture = resources->RasterOverlays[0].Texture;
+                    const SDLPrepareRendererResourcesRasterOverlay* rasterResources = &resources->RasterOverlays[kRasterOverlayID];
+                    if (rasterResources->Texture)
+                    {
+                        samplerBinding.texture = rasterResources->Texture;
+                        rasterData = glm::vec4(rasterResources->Translation, rasterResources->Scale);
+                    }
                 }
                 SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
+                SDL_PushGPUFragmentUniformData(commandBuffer, 0, &rasterData, sizeof(rasterData));
                 for (const SDLPrepareRendererResourcesTileMesh& primitive : resources->Primitives)
                 {
                     SDL_GPUBufferBinding vertexBinding{};
                     vertexBinding.buffer = primitive.VertexBuffer;
-                    SDL_PushGPUVertexUniformData(commandBuffer, 2, &primitive.Transform, sizeof(glm::mat4));
+                    const glm::mat4 mvpMatrix = glm::mat4(viewProjMatrix * primitive.Transform);
+                    SDL_PushGPUVertexUniformData(commandBuffer, 0, &mvpMatrix, sizeof(mvpMatrix));
                     SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
                     if (primitive.IndexBuffer)
                     {

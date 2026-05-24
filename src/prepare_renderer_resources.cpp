@@ -17,9 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include "config.hpp"
 #include "prepare_renderer_resources.hpp"
-
-static constexpr int kOverlayID = 0;
 
 SDLPrepareRendererResources::SDLPrepareRendererResources(SDL_GPUDevice* device)
     : Device{device}
@@ -118,19 +117,23 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
             });
             if (overlay0It != primitive.attributes.end())
             {
-                CesiumGltf::createAccessorView(model, overlay0It->second, [&](auto&& overlay0View)
+                const CesiumGltf::Accessor* overlay0Accessor = CesiumGltf::Model::getSafe(&model.accessors, overlay0It->second);
+                if (overlay0Accessor)
                 {
-                    if (overlay0View.status() != CesiumGltf::AccessorViewStatus::Valid)
+                    CesiumGltf::createAccessorView(model, *overlay0Accessor, [&](auto&& overlay0View)
                     {
-                        SDL_Log("Overlay0 view was invalid");
-                        return;
-                    }
-                    for (uint32_t i = 0; i < std::min(numVertices, uint32_t(overlay0View.size())); i++)
-                    {
-                        auto overlay0 = overlay0View[i];
-                        vertexData[i].Overlay0 = glm::vec2(overlay0.value[0], overlay0.value[1]);
-                    }
-                });
+                        if (overlay0View.status() != CesiumGltf::AccessorViewStatus::Valid)
+                        {
+                            SDL_Log("Overlay0 view was invalid");
+                            return;
+                        }
+                        for (uint32_t i = 0; i < std::min(numVertices, uint32_t(overlay0View.size())); i++)
+                        {
+                            auto overlay0 = overlay0View[i];
+                            vertexData[i].Overlay0 = glm::vec2(overlay0.value[0], overlay0.value[1]);
+                        }
+                    });
+                }
             }
             SDL_UnmapGPUTransferBuffer(Device, vertexTransferBuffer);
             {
@@ -234,7 +237,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 numVertices,
                 numIndices,
                 indexElementSize,
-                glm::mat4(tileTransform * nodeTransform),
+                tileTransform * nodeTransform,
             });
         });
     SDL_EndGPUCopyPass(copyPass);
@@ -287,7 +290,7 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
     const glm::dvec2& translation,
     const glm::dvec2& scale)
 {
-    if (overlayTextureCoordinateID != kOverlayID)
+    if (overlayTextureCoordinateID != kRasterOverlayID)
     {
         return;
     }
@@ -315,7 +318,7 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     const CesiumRasterOverlays::RasterOverlayTile& rasterTile,
     void* pMainThreadRendererResources) noexcept
 {
-    if (overlayTextureCoordinateID != kOverlayID)
+    if (overlayTextureCoordinateID != kRasterOverlayID)
     {
         return;
     }

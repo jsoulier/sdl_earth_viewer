@@ -7,7 +7,14 @@ struct Output
 Texture2D OverlayTexture : register(t0, space2);
 SamplerState OverlaySampler : register(s0, space2);
 
+cbuffer OverlayBuffer : register(b0, space3)
+{
+    float2 Translation;
+    float2 Scale;
+};
+
 float4 main(Output input) : SV_Target
 {
-    return OverlayTexture.Sample(OverlaySampler, input.TexCoord);
+    float2 texcoord = input.TexCoord * Scale + Translation;
+    return OverlayTexture.Sample(OverlaySampler, texcoord);
 }

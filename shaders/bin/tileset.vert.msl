@@ -5,17 +5,7 @@ using namespace metal;
 
 struct type_UniformBuffer
 {
-    float4x4 View;
-};
-
-struct type_UniformBuffer_1
-{
-    float4x4 Proj;
-};
-
-struct type_UniformBuffer_2
-{
-    float4x4 Model;
+    float4x4 ModelViewProjection;
 };
 
 struct main0_out
@@ -30,10 +20,10 @@ struct main0_in
     float2 in_var_TEXCOORD1 [[attribute(1)]];
 };
 
-vertex main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]], constant type_UniformBuffer_1& UniformBuffer_1 [[buffer(1)]], constant type_UniformBuffer_2& UniformBuffer_2 [[buffer(2)]])
+vertex main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]])
 {
     main0_out out = {};
-    out.gl_Position = UniformBuffer_1.Proj * (UniformBuffer.View * (UniformBuffer_2.Model * float4(in.in_var_TEXCOORD0, 1.0)));
+    out.gl_Position = UniformBuffer.ModelViewProjection * float4(in.in_var_TEXCOORD0, 1.0);
     out.out_var_TEXCOORD0 = in.in_var_TEXCOORD1;
     return out;
 }
