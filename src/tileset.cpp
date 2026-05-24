@@ -51,7 +51,7 @@ SDLTileset::SDLTileset()
 {
 }
 
-void SDLTileset::Update(const SDLCamera& camera)
+const Cesium3DTilesSelection::ViewUpdateResult& SDLTileset::Update(const SDLCamera& camera)
 {
     if (camera.IsValid())
     {
@@ -59,6 +59,7 @@ void SDLTileset::Update(const SDLCamera& camera)
     }
     Tileset->loadTiles();
     AsyncSystem.dispatchMainThreadTasks();
+    return Tileset->getDefaultViewGroup().getViewUpdateResult();
 }
 
 std::shared_ptr<SDLTileset> SDLTileset::Create(const SDLTilesetConfig& config)

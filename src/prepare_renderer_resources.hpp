@@ -24,14 +24,9 @@ struct SDLPrepareRendererResourcesTileMesh
     glm::mat4 Transform;
 };
 
-struct SDLPrepareRendererResourcesRasterOverlayTile
-{
-    SDL_GPUTexture* Texture;
-};
-
 struct SDLPrepareRendererResourcesRasterOverlay
 {
-    SDLPrepareRendererResourcesRasterOverlayTile* RasterTile;
+    SDL_GPUTexture* Texture;
     glm::dvec2 Translation;
     glm::dvec2 Scale;
 };

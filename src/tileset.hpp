@@ -32,7 +32,7 @@ class SDLTileset
 {
 public:
     SDLTileset();
-    void Update(const SDLCamera& camera);
+    const Cesium3DTilesSelection::ViewUpdateResult& Update(const SDLCamera& camera);
     static std::shared_ptr<SDLTileset> Create(const SDLTilesetConfig& config);
 
 private:

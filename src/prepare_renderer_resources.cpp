@@ -260,12 +260,12 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
     {
         return;
     }
-    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pMainThreadRendererResources);
-    if (!rasterResources)
+    SDL_GPUTexture* texture = static_cast<SDL_GPUTexture*>(pMainThreadRendererResources);
+    if (!texture)
     {
         return;
     }
-    resources->RasterOverlays.push_back({rasterResources, translation, scale});
+    resources->RasterOverlays.emplace_back(texture, translation, scale);
 }
 
 void SDLPrepareRendererResources::detachRasterInMainThread(
@@ -274,6 +274,10 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     const CesiumRasterOverlays::RasterOverlayTile& rasterTile,
     void* pMainThreadRendererResources) noexcept
 {
+    if (overlayTextureCoordinateID != kOverlayID)
+    {
+        return;
+    }
     auto tileRenderContent = tile.getContent().getRenderContent();
     if (!tileRenderContent)
     {
@@ -284,14 +288,14 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     {
         return;
     }
-    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(pMainThreadRendererResources);
-    if (!rasterResources)
+    SDL_GPUTexture* texture = static_cast<SDL_GPUTexture*>(pMainThreadRendererResources);
+    if (!texture)
     {
         return;
     }
     for (auto it = resources->RasterOverlays.begin(); it != resources->RasterOverlays.end(); it++)
     {
-        if (it->RasterTile == rasterResources && overlayTextureCoordinateID == kOverlayID)
+        if (it->Texture == texture)
         {
             resources->RasterOverlays.erase(it);
             break;
@@ -381,9 +385,7 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
         SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
     }
     SDL_SubmitGPUCommandBuffer(commandBuffer);
-    SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = new SDLPrepareRendererResourcesRasterOverlayTile();
-    rasterResources->Texture = texture;
-    return rasterResources;
+    return texture;
 }
 
 void* SDLPrepareRendererResources::prepareRasterInMainThread(
@@ -404,9 +406,8 @@ void SDLPrepareRendererResources::freeRaster(
         {
             return;
         }
-        SDLPrepareRendererResourcesRasterOverlayTile* rasterResources = static_cast<SDLPrepareRendererResourcesRasterOverlayTile*>(tile);
-        SDL_ReleaseGPUTexture(Device, rasterResources->Texture);
-        delete rasterResources;
+        SDL_GPUTexture* texture = static_cast<SDL_GPUTexture*>(tile);
+        SDL_ReleaseGPUTexture(Device, texture);
     };
     freeOverlayTile(pLoadThreadResult);
     if (pLoadThreadResult != pMainThreadResult)

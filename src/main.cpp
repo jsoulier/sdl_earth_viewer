@@ -21,6 +21,8 @@ static SDL_Window* window;
 static SDL_GPUDevice* device;
 static SDL_GPUTexture* depthTexture;
 static SDL_GPUGraphicsPipeline* tilesetPipeline;
+static SDL_GPUTexture* defaultRasterTexture;
+static SDL_GPUSampler* defaultRasterSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
 static std::shared_ptr<SDLTileset> tileset;
 static SDLCamera camera;
@@ -85,9 +87,9 @@ static bool Init()
         return false;
     }
 #ifndef NDEBUG
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, true, nullptr);
+    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
 #else
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
+    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr);
 #endif
     if (!device)
     {
@@ -117,6 +119,54 @@ static bool Init()
         ImGui_ImplSDLGPU3_Init(&info);
     }
     prepareRendererResources = std::make_shared<SDLPrepareRendererResources>(device);
+
+    {
+        SDL_GPUTextureCreateInfo info{};
+        info.type = SDL_GPU_TEXTURETYPE_2D;
+        info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        info.width = 1;
+        info.height = 1;
+        info.layer_count_or_depth = 1;
+        info.num_levels = 1;
+        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+        info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        defaultRasterTexture = SDL_CreateGPUTexture(device, &info);
+
+        SDL_GPUTransferBufferCreateInfo tbInfo{};
+        tbInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        tbInfo.size = 4;
+        SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device, &tbInfo);
+        void* data = SDL_MapGPUTransferBuffer(device, tb, false);
+        if (data) {
+            uint32_t white = 0xFFFFFFFF;
+            memcpy(data, &white, 4);
+            SDL_UnmapGPUTransferBuffer(device, tb);
+
+            SDL_GPUCommandBuffer* cb = SDL_AcquireGPUCommandBuffer(device);
+            SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(cb);
+            SDL_GPUTextureTransferInfo tti{};
+            tti.transfer_buffer = tb;
+            SDL_GPUTextureRegion tr{};
+            tr.texture = defaultRasterTexture;
+            tr.w = 1;
+            tr.h = 1;
+            tr.d = 1;
+            SDL_UploadToGPUTexture(cp, &tti, &tr, false);
+            SDL_EndGPUCopyPass(cp);
+            SDL_SubmitGPUCommandBuffer(cb);
+        }
+        SDL_ReleaseGPUTransferBuffer(device, tb);
+
+        SDL_GPUSamplerCreateInfo samplerInfo{};
+        samplerInfo.min_filter = SDL_GPU_FILTER_LINEAR;
+        samplerInfo.mag_filter = SDL_GPU_FILTER_LINEAR;
+        samplerInfo.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+        samplerInfo.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        samplerInfo.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        samplerInfo.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+        defaultRasterSampler = SDL_CreateGPUSampler(device, &samplerInfo);
+    }
+
     if (!CreateTilesetPipeline())
     {
         SDL_Log("Failed to create tileset pipeline");
@@ -146,6 +196,8 @@ static void Quit()
     prepareRendererResources.reset();
     SDL_ReleaseGPUGraphicsPipeline(device, tilesetPipeline);
     SDL_ReleaseGPUTexture(device, depthTexture);
+    SDL_ReleaseGPUTexture(device, defaultRasterTexture);
+    SDL_ReleaseGPUSampler(device, defaultRasterSampler);
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -167,19 +219,11 @@ static bool Poll()
         }
         switch (event.type)
         {
-        case SDL_EVENT_QUIT:
-            return false;
+            case SDL_EVENT_QUIT:
+                return false;
         }
     }
     return true;
-}
-
-static void Update()
-{
-    if (tileset)
-    {
-        tileset->Update(camera);
-    }
 }
 
 static bool Resize(uint32_t width, uint32_t height)
@@ -253,7 +297,62 @@ static void Render()
         }
         if (tileset)
         {
-            // TODO:
+            SDL_BindGPUGraphicsPipeline(renderPass, tilesetPipeline);
+            
+            struct SceneBuffer
+            {
+                glm::mat4 View;
+                glm::mat4 Proj;
+            } sceneBuffer;
+
+            sceneBuffer.View = camera.GetViewMatrix();
+            sceneBuffer.Proj = camera.GetProjMatrix();
+
+            SDL_PushGPUVertexUniformData(commandBuffer, 0, &sceneBuffer, sizeof(SceneBuffer));
+
+            const Cesium3DTilesSelection::ViewUpdateResult& result = tileset->Update(camera);
+            for (const auto& tile : result.tilesToRenderThisFrame)
+            {
+                auto content = tile->getContent().getRenderContent();
+                if (!content)
+                {
+                    continue;
+                }
+                auto resources = static_cast<SDLPrepareRendererResourcesTile*>(content->getRenderResources());
+                if (!resources)
+                {
+                    continue;
+                }
+
+                SDL_GPUTexture* rasterTexture = defaultRasterTexture;
+                SDL_GPUSampler* rasterSampler = defaultRasterSampler;
+                if (!resources->RasterOverlays.empty() && resources->RasterOverlays[0].RasterTile && resources->RasterOverlays[0].RasterTile->Texture)
+                {
+                    rasterTexture = resources->RasterOverlays[0].RasterTile->Texture;
+                }
+
+                SDL_GPUTextureSamplerBinding samplerBinding{};
+                samplerBinding.texture = rasterTexture;
+                samplerBinding.sampler = rasterSampler;
+                SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
+
+                for (const auto& primitive : resources->Primitives)
+                {
+                    SDL_PushGPUVertexUniformData(commandBuffer, 1, &primitive.Transform, sizeof(glm::mat4));
+
+                    SDL_GPUBufferBinding vertexBinding{};
+                    vertexBinding.buffer = primitive.VertexBuffer;
+                    vertexBinding.offset = 0;
+                    SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
+
+                    SDL_GPUBufferBinding indexBinding{};
+                    indexBinding.buffer = primitive.IndexBuffer;
+                    indexBinding.offset = 0;
+                    SDL_BindGPUIndexBuffer(renderPass, &indexBinding, primitive.IndexElementSize);
+
+                    SDL_DrawGPUIndexedPrimitives(renderPass, primitive.NumIndices, 1, 0, 0, 0);
+                }
+            }
         }
         SDL_EndGPURenderPass(renderPass);
     }
@@ -307,7 +406,6 @@ int main(int argc, char** argv)
         {
             break;
         }
-        Update();
         Render();
     }
     Quit();
