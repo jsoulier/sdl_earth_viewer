@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 
+class SDLCamera;
 class SDLPrepareRendererResources;
 class SDLTaskProcessor;
 
@@ -30,9 +31,11 @@ public:
 class SDLTileset
 {
 public:
+    SDLTileset();
+    void Update(const SDLCamera& camera);
     static std::shared_ptr<SDLTileset> Create(const SDLTilesetConfig& config);
-    void Free();
 
 private:
     std::unique_ptr<Cesium3DTilesSelection::Tileset> Tileset;
+    CesiumAsync::AsyncSystem AsyncSystem;
 };

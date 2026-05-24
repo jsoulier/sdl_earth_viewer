@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
     
+#include "camera.hpp"
 #include "log_sink.hpp"
 #include "prepare_renderer_resources.hpp"
 #include "task_processor.hpp"
@@ -38,11 +39,23 @@ static std::string GetIonToken(const std::filesystem::path& path)
     }
     return token;
 }
-    
+
 SDLTilesetConfig::SDLTilesetConfig()
     : IonAssetID{-1}
     , IonImageryID{-1}
 {
+}
+
+SDLTileset::SDLTileset()
+: AsyncSystem{nullptr}
+{
+}
+
+void SDLTileset::Update(const SDLCamera& camera)
+{
+    Tileset->updateViewGroup(Tileset->getDefaultViewGroup(), {camera.GetViewState()});
+    Tileset->loadTiles();
+    AsyncSystem.dispatchMainThreadTasks();
 }
 
 std::shared_ptr<SDLTileset> SDLTileset::Create(const SDLTilesetConfig& config)
@@ -64,16 +77,12 @@ std::shared_ptr<SDLTileset> SDLTileset::Create(const SDLTilesetConfig& config)
     std::shared_ptr<SDLTaskProcessor> taskProcessor = std::make_shared<SDLTaskProcessor>();
     std::shared_ptr<CesiumAsync::IAssetAccessor> assetAccessor = std::make_shared<CesiumCurl::CurlAssetAccessor>();
     std::shared_ptr<CesiumUtility::CreditSystem> creditSystem = std::make_shared<CesiumUtility::CreditSystem>();
-    Cesium3DTilesSelection::TilesetExternals externals{assetAccessor, config.PrepareRendererResources, {taskProcessor}, creditSystem, logger};
+    tileset->AsyncSystem = CesiumAsync::AsyncSystem(taskProcessor);
+    Cesium3DTilesSelection::TilesetExternals externals{assetAccessor, config.PrepareRendererResources, tileset->AsyncSystem, creditSystem, logger};
     tileset->Tileset = std::make_unique<Cesium3DTilesSelection::Tileset>(externals, config.IonAssetID, ionToken, config.TilesetOptions);
     if (config.IonImageryID != -1)
     {
         tileset->Tileset->getOverlays().add(new CesiumRasterOverlays::IonRasterOverlay("overlay", config.IonImageryID, ionToken, config.RasterOverlayOptions));
     }
     return tileset;
-}
-
-void SDLTileset::Free()
-{
-    Tileset.reset();
 }

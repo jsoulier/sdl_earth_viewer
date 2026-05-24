@@ -12,8 +12,9 @@ public:
     void Resize(uint32_t width, uint32_t height);
     Cesium3DTilesSelection::ViewState GetViewState() const;
     glm::dmat4 GetViewMatrix() const;
-    glm::dmat4 GetProjectionMatrix() const;
+    glm::dmat4 GetProjMatrix() const;
     glm::dvec3 GetPosition() const;
+    double GetDistance() const;
     uint32_t GetWidth() const;
     uint32_t GetHeight() const;
     double GetAspectRatio() const;

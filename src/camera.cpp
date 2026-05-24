@@ -81,7 +81,7 @@ glm::dmat4 SDLCamera::GetViewMatrix() const
     return glm::lookAt(GetPosition(), Target, kUp);
 }
 
-glm::dmat4 SDLCamera::GetProjectionMatrix() const
+glm::dmat4 SDLCamera::GetProjMatrix() const
 {
     return glm::perspective(kFovY, GetAspectRatio(), kNear, kNear * 1e7); // TODO: use Reverse-Z
 }
@@ -91,7 +91,12 @@ glm::dvec3 SDLCamera::GetPosition() const
     double x = Distance * std::cos(Pitch) * std::cos(Yaw);
     double y = Distance * std::cos(Pitch) * std::sin(Yaw);
     double z = Distance * std::sin(Pitch);
-    return Target + glm::dvec3(x, y, z);
+    return Target + glm::dvec3{x, y, z};
+}
+
+double SDLCamera::GetDistance() const
+{
+    return Distance;
 }
 
 uint32_t SDLCamera::GetWidth() const

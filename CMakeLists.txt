@@ -24,13 +24,71 @@ add_subdirectory(lib/cesium-native)
 add_subdirectory(lib/glm)
 add_subdirectory(lib/imgui)
 add_subdirectory(lib/json)
+
+find_program(SHADERCROSS shadercross)
+function(add_shader FILE)
+    set(DEPENDS ${ARGN})
+    set(HLSL ${CMAKE_SOURCE_DIR}/shaders/${FILE})
+    set(SPV ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.spv)
+    set(MSL ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.msl)
+    set(JSON ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.json)
+    function(compile OUTPUT)
+        add_custom_command(
+            OUTPUT ${OUTPUT}
+            COMMAND ${SHADERCROSS} ${HLSL} -s hlsl -o ${OUTPUT} -I shaders
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            DEPENDS ${HLSL} ${DEPENDS}
+            COMMENT ${OUTPUT}
+        )
+        get_filename_component(NAME ${OUTPUT} NAME)
+        string(REPLACE . _ NAME ${NAME})
+        set(NAME compile_${NAME})
+        add_custom_target(${NAME} DEPENDS ${OUTPUT})
+        add_dependencies(sdl_earth ${NAME})
+    endfunction()
+    if (EXISTS ${SHADERCROSS})
+        compile(${SPV})
+        compile(${MSL})
+        compile(${JSON})
+    else()
+        message("Using prebuilts since SDL_shadercross is missing")
+    endif()
+    function(package OUTPUT)
+        get_filename_component(NAME ${OUTPUT} NAME)
+        set(BINARY ${BINARY_DIR}/${NAME})
+        add_custom_command(
+            OUTPUT ${BINARY}
+            COMMAND ${CMAKE_COMMAND} -E copy ${OUTPUT} ${BINARY}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            DEPENDS ${OUTPUT}
+            COMMENT ${BINARY}
+        )
+        string(REPLACE . _ NAME ${NAME})
+        set(NAME package_${NAME})
+        add_custom_target(${NAME} DEPENDS ${BINARY})
+        add_dependencies(sdl_earth ${NAME})
+    endfunction()
+    if(APPLE)
+        package(${MSL})
+    else()
+        package(${SPV})
+    endif()
+    package(${JSON})
+endfunction()
+
 add_executable(sdl_earth WIN32
     src/camera.cpp
+    src/debug_group.cpp
     src/main.cpp
     src/prepare_renderer_resources.cpp
+    src/shader.cpp
     src/task_processor.cpp
     src/tileset.cpp
 )
+
+add_shader(tileset.vert)
+add_shader(tileset.frag)
+
 target_link_libraries(sdl_earth PRIVATE
     Cesium3DTilesSelection
     CesiumAsync
@@ -87,54 +145,3 @@ target_precompile_headers(sdl_earth PRIVATE
     <utility>
     <vector>
 )
-
-find_program(SHADERCROSS shadercross)
-function(add_shader FILE)
-    set(DEPENDS ${ARGN})
-    set(HLSL ${CMAKE_SOURCE_DIR}/shaders/${FILE})
-    set(SPV ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.spv)
-    set(MSL ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.msl)
-    set(JSON ${CMAKE_SOURCE_DIR}/shaders/bin/${FILE}.json)
-    function(compile OUTPUT)
-        add_custom_command(
-            OUTPUT ${OUTPUT}
-            COMMAND ${SHADERCROSS} ${HLSL} -s hlsl -o ${OUTPUT} -I shaders
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            DEPENDS ${HLSL} ${DEPENDS}
-            COMMENT ${OUTPUT}
-        )
-        get_filename_component(NAME ${OUTPUT} NAME)
-        string(REPLACE . _ NAME ${NAME})
-        set(NAME compile_${NAME})
-        add_custom_target(${NAME} DEPENDS ${OUTPUT})
-        add_dependencies(sdl_earth ${NAME})
-    endfunction()
-    if (EXISTS ${SHADERCROSS})
-        compile(${SPV})
-        compile(${MSL})
-        compile(${JSON})
-    else()
-        message("Using prebuilts since SDL_shadercross is missing")
-    endif()
-    function(package OUTPUT)
-        get_filename_component(NAME ${OUTPUT} NAME)
-        set(BINARY ${BINARY_DIR}/${NAME})
-        add_custom_command(
-            OUTPUT ${BINARY}
-            COMMAND ${CMAKE_COMMAND} -E copy ${OUTPUT} ${BINARY}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            DEPENDS ${OUTPUT}
-            COMMENT ${BINARY}
-        )
-        string(REPLACE . _ NAME ${NAME})
-        set(NAME package_${NAME})
-        add_custom_target(${NAME} DEPENDS ${BINARY})
-        add_dependencies(sdl_earth ${NAME})
-    endfunction()
-    if(APPLE)
-        package(${MSL})
-    else()
-        package(${SPV})
-    endif()
-    package(${JSON})
-endfunction()
