@@ -364,7 +364,7 @@ static void Render()
                 glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                 if (!resources->RasterOverlays.empty())
                 {
-                    const SDLPrepareRendererResourcesRasterOverlay* rasterResources = &resources->RasterOverlays[kRasterOverlayID];
+                    const SDLPrepareRendererResourcesRasterOverlay* rasterResources = &resources->RasterOverlays.back();
                     if (rasterResources->Texture)
                     {
                         samplerBinding.texture = rasterResources->Texture;

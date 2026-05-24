@@ -292,6 +292,7 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
 {
     if (overlayTextureCoordinateID != kRasterOverlayID)
     {
+        SDL_Log("Tried to attach an unsupported raster overlay");
         return;
     }
     const Cesium3DTilesSelection::TileRenderContent* tileRenderContent = tile.getContent().getRenderContent();
@@ -320,6 +321,7 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
 {
     if (overlayTextureCoordinateID != kRasterOverlayID)
     {
+        SDL_Log("Tried to detach an unsupported raster overlay");
         return;
     }
     const Cesium3DTilesSelection::TileRenderContent* tileRenderContent = tile.getContent().getRenderContent();

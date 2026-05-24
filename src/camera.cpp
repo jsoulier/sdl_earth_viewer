@@ -75,7 +75,7 @@ bool SDLCamera::IsValid() const
 
 Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
 {
-    return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetProjMatrix(), glm::dvec2(Viewport));
+    return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetViewStateProjMatrix(), glm::dvec2(Viewport));
 }
 
 glm::dmat4 SDLCamera::GetViewMatrix() const
@@ -85,7 +85,7 @@ glm::dmat4 SDLCamera::GetViewMatrix() const
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    glm::dmat4 proj = CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kNear * 1e8);
+    glm::dmat4 proj = GetViewStateProjMatrix();
     proj[1][1] *= -1.0; // Cesium uses Vulkan Y down, SDL expects Y up
     return proj;
 }
@@ -121,4 +121,9 @@ double SDLCamera::GetAspectRatio() const
 double SDLCamera::GetFovX() const
 {
     return 2.0 * std::atan(std::tan(kFovY / 2.0) * GetAspectRatio());
+}
+
+glm::dmat4 SDLCamera::GetViewStateProjMatrix() const
+{
+    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kNear * 1e8);
 }

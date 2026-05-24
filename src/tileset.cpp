@@ -44,6 +44,12 @@ SDLTilesetConfig::SDLTilesetConfig()
     : IonAssetID{-1}
     , IonImageryID{-1}
 {
+    TilesetOptions.forbidHoles = true;
+
+    // TODO: remove after issues are resolved
+    TilesetOptions.enableFrustumCulling = false;
+    TilesetOptions.enableOcclusionCulling = false;
+    TilesetOptions.enableFogCulling = false;
 }
 
 SDLTileset::SDLTileset()

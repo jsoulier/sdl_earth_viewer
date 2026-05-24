@@ -15,6 +15,7 @@ cbuffer OverlayBuffer : register(b0, space3)
 
 float4 main(Output input) : SV_Target
 {
-    float2 texcoord = input.TexCoord * Scale + Translation;
+    float2 overlayUV = input.TexCoord * Scale + Translation;
+    float2 texcoord = float2(overlayUV.x, 1.0 - overlayUV.y);
     return OverlayTexture.Sample(OverlaySampler, texcoord);
 }

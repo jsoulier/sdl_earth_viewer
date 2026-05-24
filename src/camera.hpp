@@ -22,6 +22,8 @@ public:
     double GetFovX() const;
 
 private:
+    glm::dmat4 GetViewStateProjMatrix() const;
+
     glm::dvec3 Target;
     glm::uvec2 Viewport;
     double Distance;

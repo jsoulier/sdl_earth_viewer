@@ -22,7 +22,8 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant type_OverlayBuffer& OverlayBuffer [[buffer(0)]], texture2d<float> OverlayTexture [[texture(0)]], sampler OverlaySampler [[sampler(0)]])
 {
     main0_out out = {};
-    out.out_var_SV_Target = OverlayTexture.sample(OverlaySampler, ((in.in_var_TEXCOORD0 * OverlayBuffer.Scale) + OverlayBuffer.Translation));
+    float2 _33 = (in.in_var_TEXCOORD0 * OverlayBuffer.Scale) + OverlayBuffer.Translation;
+    out.out_var_SV_Target = OverlayTexture.sample(OverlaySampler, float2(_33.x, 1.0 - _33.y));
     return out;
 }
 
