@@ -363,17 +363,16 @@ static void Render()
                 samplerBinding.sampler = defaultRasterSampler;
                 if (!resources->RasterOverlays.empty() && resources->RasterOverlays[0].Texture)
                 {
-                    samplerBinding.texture = defaultRasterTexture;
                     samplerBinding.texture = resources->RasterOverlays[0].Texture;
                 }
                 SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
-                for (const auto& primitive : resources->Primitives)
+                for (const SDLPrepareRendererResourcesTileMesh& primitive : resources->Primitives)
                 {
                     SDL_GPUBufferBinding vertexBinding{};
                     SDL_GPUBufferBinding indexBinding{};
                     vertexBinding.buffer = primitive.VertexBuffer;
                     indexBinding.buffer = primitive.IndexBuffer;
-                    SDL_PushGPUVertexUniformData(commandBuffer, 1, &primitive.Transform, sizeof(glm::mat4));
+                    SDL_PushGPUVertexUniformData(commandBuffer, 2, &primitive.Transform, sizeof(glm::mat4));
                     SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
                     SDL_BindGPUIndexBuffer(renderPass, &indexBinding, primitive.IndexElementSize);
                     SDL_DrawGPUIndexedPrimitives(renderPass, primitive.NumIndices, 1, 0, 0, 0);

@@ -88,7 +88,7 @@ glm::dmat4 SDLCamera::GetViewMatrix() const
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    return glm::perspective(kFovY, GetAspectRatio(), kNear, kNear * 1e7); // TODO: use Reverse-Z
+    return glm::perspective(kFovY, GetAspectRatio(), kNear, kNear * 1e8); // TODO: use Reverse-Z
 }
 
 glm::dvec3 SDLCamera::GetPosition() const
