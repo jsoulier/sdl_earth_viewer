@@ -10,44 +10,75 @@
 
 #include "camera.hpp"
 
-static constexpr glm::dvec3 kUp = glm::dvec3(0.0, 1.0, 0.0);
+static constexpr glm::dvec3 kUp = glm::dvec3(0.0, 0.0, 1.0);
 static constexpr double kMaxPitch = glm::pi<double>() / 2.0 - 0.001;
 static constexpr double kNear = 1.0;
 static constexpr double kFar = kNear * 1e8;
 static constexpr double kEarthRadius = 6378.137e3;
 static constexpr double kMinDistanceToEarth = 100.0;
-static constexpr double kArcSpeed = 0.005;
+static constexpr double kArcSpeed = 0.1e-9;
+static constexpr double kPanSpeed = 0.001;
 static constexpr double kZoomSpeed = 0.1;
 static constexpr double kFovY = glm::radians(45.0);
+
+static double GetMinDistance(const glm::dvec3& target, double yaw, double pitch)
+{
+    const double cosPitch = std::cos(pitch);
+    const double cosYaw = std::cos(yaw);
+    const double sinPitch = std::sin(pitch);
+    const double sinYaw = std::sin(yaw);
+    const glm::dvec3 direction{cosPitch * cosYaw, cosPitch * sinYaw, sinPitch};
+    const double minRadius = kEarthRadius + kMinDistanceToEarth;
+    const double b = 2.0 * glm::dot(target, direction);
+    const double c = glm::dot(target, target) - minRadius * minRadius;
+    const double discriminant = b * b - 4.0 * c;
+    if (discriminant < 0.0)
+    {
+        return 0.0;
+    }
+    const double sqrtDiscriminant = std::sqrt(discriminant);
+    const double t0 = (-b - sqrtDiscriminant) * 0.5;
+    const double t1 = (-b + sqrtDiscriminant) * 0.5;
+    return std::max(0.0, std::max(t0, t1));
+}
 
 SDLCamera::SDLCamera()
     : Target{0.0, 0.0, 0.0}
     , Viewport{0, 0}
     , Distance{20000.0e3}
     , Pitch{0.0}
-    , Yaw{0.0}
+    , Yaw{glm::half_pi<double>()}
 {
 }
 
 void SDLCamera::Handle(const SDL_Event& event)
 {
+    const glm::dvec3 position = GetPosition();
+    const glm::dvec3 forward = glm::normalize(Target - position);
+    const glm::dvec3 right = glm::normalize(glm::cross(forward, kUp));
+    const glm::dvec3 up = glm::normalize(glm::cross(right, forward));
+    const double altitude = glm::length(GetPosition()) - kEarthRadius;
+    const double speed = std::max(kMinDistanceToEarth, altitude);
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_MOTION:
     {
         if (event.motion.state & SDL_BUTTON_MASK(SDL_BUTTON_LEFT))
         {
-            Yaw -= event.motion.xrel * kArcSpeed;
-            Pitch += event.motion.yrel * kArcSpeed;
-            Pitch = std::clamp(Pitch, -kMaxPitch, kMaxPitch);
+            Yaw -= event.motion.xrel * speed * kArcSpeed;
+            Pitch = std::clamp(Pitch + event.motion.yrel * speed * kArcSpeed, -kMaxPitch, kMaxPitch);
+        }
+        else if (event.motion.state & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
+        {
+            Target -= right * double(event.motion.xrel) * speed * kPanSpeed;
+            Target += up * double(event.motion.yrel) * speed * kPanSpeed;
         }
         break;
     }
     case SDL_EVENT_MOUSE_WHEEL:
     {
-        Distance -= event.wheel.y * Distance * kZoomSpeed;
-        double minDistance = std::max(0.0, kEarthRadius - glm::length(Target)) + kMinDistanceToEarth;
-        Distance = std::max(Distance, minDistance);
+        Distance -= event.wheel.y * speed * kZoomSpeed;
+        Distance = std::max(Distance, GetMinDistance(Target, Yaw, Pitch));
         break;
     }
     }
@@ -80,9 +111,9 @@ glm::dmat4 SDLCamera::GetViewMatrix() const
 
 glm::dvec3 SDLCamera::GetPosition() const
 {
-    double x = Distance * std::cos(Pitch) * std::sin(Yaw);
-    double y = Distance * std::sin(Pitch);
-    double z = Distance * std::cos(Pitch) * std::cos(Yaw);
+    double x = Distance * std::cos(Pitch) * std::cos(Yaw);
+    double y = Distance * std::cos(Pitch) * std::sin(Yaw);
+    double z = Distance * std::sin(Pitch);
     return Target + glm::dvec3{x, y, z};
 }
 

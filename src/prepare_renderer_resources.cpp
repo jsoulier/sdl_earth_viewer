@@ -5,6 +5,7 @@
 #include <CesiumGltf/AccessorView.h>
 #include <CesiumGltf/ImageAsset.h>
 #include <CesiumGltf/Model.h>
+#include <CesiumGltfContent/GltfUtilities.h>
 #include <CesiumRasterOverlays/RasterOverlayTile.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
@@ -50,6 +51,8 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
         return asyncSystem.createResolvedFuture(Cesium3DTilesSelection::TileLoadResultAndRenderResources{std::move(tileLoadResult), nullptr});
     }
     SDLPrepareRendererResourcesTile* resources = new SDLPrepareRendererResourcesTile();
+    glm::dmat4 rootTransform = CesiumGltfContent::GltfUtilities::applyRtcCenter(*rootModel, tileTransform);
+    rootTransform = CesiumGltfContent::GltfUtilities::applyGltfUpAxisTransform(*rootModel, rootTransform);
     rootModel->forEachPrimitiveInScene(-1, [&](
         const CesiumGltf::Model& model,
         const CesiumGltf::Node& node,
@@ -237,7 +240,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 numVertices,
                 numIndices,
                 indexElementSize,
-                tileTransform * nodeTransform,
+                rootTransform * nodeTransform,
             });
         });
     SDL_EndGPUCopyPass(copyPass);

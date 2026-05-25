@@ -67,8 +67,7 @@ SDLTilesetConfig::SDLTilesetConfig()
         SDL_Log("%s", details.message.data());
     };
     TilesetOptions.forbidHoles = true;
-    // TODO: figure out why their frustum culling is over-culling
-    TilesetOptions.enableFrustumCulling = false;
+    TilesetOptions.enableFrustumCulling = true;
     const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
     if (home)
     {
