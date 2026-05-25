@@ -3,7 +3,6 @@
 #include <CesiumCurl/CurlAssetAccessor.h>
 #include <CesiumUtility/CreditSystem.h>
 #include <SDL3/SDL.h>
-
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -14,15 +13,15 @@
 #include <memory>
 #include <mutex>
 #include <string>
-    
+
 #include "camera.hpp"
 #include "log_sink.hpp"
 #include "prepare_renderer_resources.hpp"
 #include "task_processor.hpp"
 #include "tileset.hpp"
 
-static constexpr int kDefaultIonAssetID = 1;
-static constexpr int kDefaultIonImageryID = 3;
+static constexpr int kDefaultIonAssetID = 2275207;
+static constexpr int kDefaultIonImageryID = -1;
 static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
 static constexpr double kZero = 0.0;
 static constexpr double kMaxSSE = 256.0;

@@ -24,8 +24,8 @@ static SDL_GPUDevice* device;
 static SDL_GPUTexture* depthTexture;
 static SDL_GPUGraphicsPipeline* tilesetPipeline;
 static SDL_GPUGraphicsPipeline* axesPipeline;
-static SDL_GPUTexture* defaultRasterTexture;
-static SDL_GPUSampler* defaultRasterSampler;
+static SDL_GPUTexture* defaultTexture;
+static SDL_GPUSampler* defaultSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
 static SDLTilesetConfig tilesetConfig;
 static std::shared_ptr<SDLTileset> tileset;
@@ -39,15 +39,18 @@ static bool CreateTilesetPipeline()
 {
     SDL_GPUColorTargetDescription targets[1]{};
     targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
-    SDL_GPUVertexAttribute attributes[2]{};
+    SDL_GPUVertexAttribute attributes[3]{};
     attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
     attributes[0].location = 0;
-    attributes[0].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Position);
+    attributes[0].offset = offsetof(SDLPrepareRendererResourcesVertex, Position);
     attributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
     attributes[1].location = 1;
-    attributes[1].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Overlay0);
+    attributes[1].offset = offsetof(SDLPrepareRendererResourcesVertex, TexCoord);
+    attributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+    attributes[2].location = 2;
+    attributes[2].offset = offsetof(SDLPrepareRendererResourcesVertex, Overlay0);
     SDL_GPUVertexBufferDescription buffers[1]{};
-    buffers[0].pitch = sizeof(SDLPrepareRendererResourcesTileMeshVertex);
+    buffers[0].pitch = sizeof(SDLPrepareRendererResourcesVertex);
     buffers[0].slot = 0;
     SDL_GPUGraphicsPipelineCreateInfo info{};
     info.vertex_shader = LoadShader(device, "tileset.vert");
@@ -56,7 +59,7 @@ static bool CreateTilesetPipeline()
     info.target_info.color_target_descriptions = targets;
     info.target_info.has_depth_stencil_target = true;
     info.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-    info.vertex_input_state.num_vertex_attributes = 2;
+    info.vertex_input_state.num_vertex_attributes = 3;
     info.vertex_input_state.vertex_attributes = attributes;
     info.vertex_input_state.num_vertex_buffers = 1;
     info.vertex_input_state.vertex_buffer_descriptions = buffers;
@@ -111,10 +114,10 @@ static bool CreateDefaultRasterOverlay()
         info.num_levels = 1;
         info.sample_count = SDL_GPU_SAMPLECOUNT_1;
         info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-        defaultRasterTexture = SDL_CreateGPUTexture(device, &info);
-        if (!defaultRasterTexture)
+        defaultTexture = SDL_CreateGPUTexture(device, &info);
+        if (!defaultTexture)
         {
-            SDL_Log("Failed to create raster texture: %s", SDL_GetError());
+            SDL_Log("Failed to create default texture: %s", SDL_GetError());
             return false;
         }
     }
@@ -154,7 +157,7 @@ static bool CreateDefaultRasterOverlay()
         SDL_GPUTextureTransferInfo info{};
         info.transfer_buffer = transferBuffer;
         SDL_GPUTextureRegion region{};
-        region.texture = defaultRasterTexture;
+        region.texture = defaultTexture;
         region.w = 1;
         region.h = 1;
         region.d = 1;
@@ -171,10 +174,10 @@ static bool CreateDefaultRasterOverlay()
         info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
         info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
         info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-        defaultRasterSampler = SDL_CreateGPUSampler(device, &info);
-        if (!defaultRasterSampler)
+        defaultSampler = SDL_CreateGPUSampler(device, &info);
+        if (!defaultSampler)
         {
-            SDL_Log("Failed to create raster sampler: %s", SDL_GetError());
+            SDL_Log("Failed to create default sampler: %s", SDL_GetError());
             return false;
         }
     }
@@ -264,8 +267,8 @@ static void Quit()
     SDL_ReleaseGPUGraphicsPipeline(device, tilesetPipeline);
     SDL_ReleaseGPUGraphicsPipeline(device, axesPipeline);
     SDL_ReleaseGPUTexture(device, depthTexture);
-    SDL_ReleaseGPUTexture(device, defaultRasterTexture);
-    SDL_ReleaseGPUSampler(device, defaultRasterSampler);
+    SDL_ReleaseGPUTexture(device, defaultTexture);
+    SDL_ReleaseGPUSampler(device, defaultSampler);
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -383,22 +386,36 @@ static void Render()
                     continue;
                 }
                 SDL_GPUTextureSamplerBinding samplerBinding{};
-                samplerBinding.texture = defaultRasterTexture;
-                samplerBinding.sampler = defaultRasterSampler;
-                glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-                if (!resources->RasterOverlays.empty())
+                samplerBinding.texture = defaultTexture;
+                samplerBinding.sampler = defaultSampler;
+                const SDLPrepareRendererResourcesOverlay* overlay = nullptr;
+                if (!resources->Overlays.empty())
                 {
-                    const SDLPrepareRendererResourcesRasterOverlay* rasterResources = &resources->RasterOverlays.back();
-                    if (rasterResources->Texture)
-                    {
-                        samplerBinding.texture = rasterResources->Texture;
-                        rasterData = glm::vec4(rasterResources->Translation, rasterResources->Scale);
-                    }
+                    overlay = &resources->Overlays.back();
                 }
-                SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
-                SDL_PushGPUFragmentUniformData(commandBuffer, 0, &rasterData, sizeof(rasterData));
-                for (const SDLPrepareRendererResourcesTileMesh& primitive : resources->Primitives)
+                for (const SDLPrepareRendererResourcesPrimitive& primitive : resources->Primitives)
                 {
+                    glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                    int32_t tileType = -1;
+                    if (primitive.BaseColorTexture && primitive.BaseColorTexture)
+                    {
+                        samplerBinding.texture = primitive.BaseColorTexture;
+                        tileType = 0;
+                    }
+                    else if (overlay && overlay->Texture)
+                    {
+                        samplerBinding.texture = overlay->Texture;
+                        rasterData = glm::vec4(overlay->Translation, overlay->Scale);
+                        tileType = 1;
+                    }
+                    else
+                    {
+                        samplerBinding.texture = defaultTexture;
+                        tileType = 2;
+                    }
+                    SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
+                    SDL_PushGPUFragmentUniformData(commandBuffer, 0, &rasterData, sizeof(rasterData));
+                    SDL_PushGPUFragmentUniformData(commandBuffer, 1, &tileType, sizeof(tileType));
                     SDL_GPUBufferBinding vertexBinding{};
                     vertexBinding.buffer = primitive.VertexBuffer;
                     const glm::mat4 mvpMatrix = glm::mat4(viewProjMatrix * primitive.Transform);

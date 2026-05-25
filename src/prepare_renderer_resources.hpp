@@ -8,23 +8,25 @@
 #include <cstdint>
 #include <vector>
 
-struct SDLPrepareRendererResourcesTileMeshVertex
+struct SDLPrepareRendererResourcesVertex
 {
     glm::vec3 Position;
+    glm::vec2 TexCoord;
     glm::vec2 Overlay0;
 };
 
-struct SDLPrepareRendererResourcesTileMesh
+struct SDLPrepareRendererResourcesPrimitive
 {
     SDL_GPUBuffer* VertexBuffer;
     SDL_GPUBuffer* IndexBuffer;
+    SDL_GPUTexture* BaseColorTexture;
     uint32_t NumVertices;
     uint32_t NumIndices;
     SDL_GPUIndexElementSize IndexElementSize;
     glm::dmat4 Transform;
 };
 
-struct SDLPrepareRendererResourcesRasterOverlay
+struct SDLPrepareRendererResourcesOverlay
 {
     SDL_GPUTexture* Texture;
     glm::dvec2 Translation;
@@ -33,8 +35,8 @@ struct SDLPrepareRendererResourcesRasterOverlay
 
 struct SDLPrepareRendererResourcesTile
 {
-    std::vector<SDLPrepareRendererResourcesTileMesh> Primitives;
-    std::vector<SDLPrepareRendererResourcesRasterOverlay> RasterOverlays;
+    std::vector<SDLPrepareRendererResourcesPrimitive> Primitives;
+    std::vector<SDLPrepareRendererResourcesOverlay> Overlays;
 };
 
 class SDLPrepareRendererResources : public Cesium3DTilesSelection::IPrepareRendererResources

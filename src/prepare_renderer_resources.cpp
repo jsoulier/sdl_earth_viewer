@@ -14,12 +14,100 @@
 #include <any>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "config.hpp"
 #include "prepare_renderer_resources.hpp"
+
+namespace {
+SDL_GPUTexture* CreateTextureFromImage(SDL_GPUDevice* device, CesiumGltf::ImageAsset& image)
+{
+    if (image.width == 0 || image.height == 0 || image.bytesPerChannel != 1 || image.pixelData.empty())
+    {
+        SDL_Log("Tried to prepare an invalid image");
+        return nullptr;
+    }
+    if (image.channels != 4)
+    {
+        image.changeNumberOfChannels(4, std::byte{255});
+    }
+    SDL_GPUTexture* texture = nullptr;
+    {
+        SDL_GPUTextureCreateInfo info{};
+        info.type = SDL_GPU_TEXTURETYPE_2D;
+        info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        info.width = image.width;
+        info.height = image.height;
+        info.layer_count_or_depth = 1;
+        info.num_levels = 1;
+        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+        info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        texture = SDL_CreateGPUTexture(device, &info);
+    }
+    if (!texture)
+    {
+        SDL_Log("Failed to create texture: %s", SDL_GetError());
+        return nullptr;
+    }
+    SDL_GPUTransferBuffer* transferBuffer = nullptr;
+    {
+        SDL_GPUTransferBufferCreateInfo info{};
+        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        info.size = image.pixelData.size();
+        transferBuffer = SDL_CreateGPUTransferBuffer(device, &info);
+    }
+    if (!transferBuffer)
+    {
+        SDL_Log("Failed to create transfer buffer: %s", SDL_GetError());
+        SDL_ReleaseGPUTexture(device, texture);
+        return nullptr;
+    }
+    void* textureData = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+    if (!textureData)
+    {
+        SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
+        SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+        SDL_ReleaseGPUTexture(device, texture);
+        return nullptr;
+    }
+    std::memcpy(textureData, image.pixelData.data(), image.pixelData.size());
+    SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device);
+    if (!commandBuffer)
+    {
+        SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
+        SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+        SDL_ReleaseGPUTexture(device, texture);
+        return nullptr;
+    }
+    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
+    if (!copyPass)
+    {
+        SDL_Log("Failed to begin copy pass: %s", SDL_GetError());
+        SDL_CancelGPUCommandBuffer(commandBuffer);
+        SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+        SDL_ReleaseGPUTexture(device, texture);
+        return nullptr;
+    }
+    {
+        SDL_GPUTextureTransferInfo info{};
+        info.transfer_buffer = transferBuffer;
+        SDL_GPUTextureRegion region{};
+        region.texture = texture;
+        region.w = image.width;
+        region.h = image.height;
+        region.d = 1;
+        SDL_UploadToGPUTexture(copyPass, &info, &region, false);
+    }
+    SDL_EndGPUCopyPass(copyPass);
+    SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+    SDL_SubmitGPUCommandBuffer(commandBuffer);
+    return texture;
+}
+}
 
 SDLPrepareRendererResources::SDLPrepareRendererResources(SDL_GPUDevice* device)
     : Device{device}
@@ -72,21 +160,49 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 SDL_Log("Failed to get position accessor");
                 return;
             }
-            auto overlay0It = primitive.attributes.find("_CESIUMOVERLAY_0");
+            const CesiumGltf::Accessor* overlay0Accessor = nullptr;
+            if (auto overlay0It = primitive.attributes.find("_CESIUMOVERLAY_0"); overlay0It != primitive.attributes.end())
+            {
+                overlay0Accessor = CesiumGltf::Model::getSafe(&model.accessors, overlay0It->second);
+            }
+            const CesiumGltf::Accessor* texCoordAccessor = nullptr;
+            const CesiumGltf::Material* material = CesiumGltf::Model::getSafe(&model.materials, primitive.material);
+            if (material && material->pbrMetallicRoughness && material->pbrMetallicRoughness->baseColorTexture)
+            {
+                const int64_t texCoordSet = material->pbrMetallicRoughness->baseColorTexture->texCoord;
+                const std::string attributeName = std::format("TEXCOORD_{}", texCoordSet);
+                if (auto texCoordIt = primitive.attributes.find(attributeName); texCoordIt != primitive.attributes.end())
+                {
+                    texCoordAccessor = CesiumGltf::Model::getSafe(&model.accessors, texCoordIt->second);
+                }
+            }
+            SDL_GPUTexture* baseColorTexture = nullptr;
+            if (material)
+            {
+                if (material->pbrMetallicRoughness && material->pbrMetallicRoughness->baseColorTexture)
+                {
+                    const CesiumGltf::Texture* texture = CesiumGltf::Model::getSafe(&model.textures, material->pbrMetallicRoughness->baseColorTexture->index);
+                    const CesiumGltf::Image* image = texture ? CesiumGltf::Model::getSafe(&model.images, texture->source) : nullptr;
+                    if (image && image->pAsset)
+                    {
+                        baseColorTexture = CreateTextureFromImage(Device, *image->pAsset);
+                    }
+                }
+            }
             SDL_GPUTransferBuffer* vertexTransferBuffer = nullptr;
             SDL_GPUBuffer* vertexBuffer = nullptr;
             uint32_t numVertices = static_cast<uint32_t>(positionAccessor->count);
-            SDLPrepareRendererResourcesTileMeshVertex* vertexData = nullptr;
+            SDLPrepareRendererResourcesVertex* vertexData = nullptr;
             {
                 SDL_GPUTransferBufferCreateInfo info{};
                 info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-                info.size = numVertices * sizeof(SDLPrepareRendererResourcesTileMeshVertex);
+                info.size = numVertices * sizeof(SDLPrepareRendererResourcesVertex);
                 vertexTransferBuffer = SDL_CreateGPUTransferBuffer(Device, &info);
             }
             {
                 SDL_GPUBufferCreateInfo info{};
                 info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-                info.size = numVertices * sizeof(SDLPrepareRendererResourcesTileMeshVertex);
+                info.size = numVertices * sizeof(SDLPrepareRendererResourcesVertex);
                 vertexBuffer = SDL_CreateGPUBuffer(Device, &info);
             }
             if (!vertexTransferBuffer || !vertexBuffer)
@@ -94,14 +210,16 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 SDL_Log("Failed to create vertex buffer(s): %s", SDL_GetError());
                 SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
                 SDL_ReleaseGPUBuffer(Device, vertexBuffer);
+                SDL_ReleaseGPUTexture(Device, baseColorTexture);
                 return;
             }
-            vertexData = static_cast<SDLPrepareRendererResourcesTileMeshVertex*>(SDL_MapGPUTransferBuffer(Device, vertexTransferBuffer, false));
+            vertexData = static_cast<SDLPrepareRendererResourcesVertex*>(SDL_MapGPUTransferBuffer(Device, vertexTransferBuffer, false));
             if (!vertexData)
             {
                 SDL_Log("Failed to map vertex transfer buffer: %s", SDL_GetError());
                 SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
                 SDL_ReleaseGPUBuffer(Device, vertexBuffer);
+                SDL_ReleaseGPUTexture(Device, baseColorTexture);
                 return;
             }
             CesiumGltf::createAccessorView(model, *positionAccessor, [&](auto&& positionView)
@@ -115,28 +233,41 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 {
                     auto position = positionView[i];
                     vertexData[i].Position = glm::vec3(position.value[0], position.value[1], position.value[2]);
+                    vertexData[i].TexCoord = glm::vec2(0.0f);
                     vertexData[i].Overlay0 = glm::vec2(0.0f);
                 }
             });
-            if (overlay0It != primitive.attributes.end())
+            if (texCoordAccessor)
             {
-                const CesiumGltf::Accessor* overlay0Accessor = CesiumGltf::Model::getSafe(&model.accessors, overlay0It->second);
-                if (overlay0Accessor)
+                CesiumGltf::createAccessorView(model, *texCoordAccessor, [&](auto&& texCoordView)
                 {
-                    CesiumGltf::createAccessorView(model, *overlay0Accessor, [&](auto&& overlay0View)
+                    if (texCoordView.status() != CesiumGltf::AccessorViewStatus::Valid)
                     {
-                        if (overlay0View.status() != CesiumGltf::AccessorViewStatus::Valid)
-                        {
-                            SDL_Log("Overlay0 view was invalid");
-                            return;
-                        }
-                        for (uint32_t i = 0; i < std::min(numVertices, uint32_t(overlay0View.size())); i++)
-                        {
-                            auto overlay0 = overlay0View[i];
-                            vertexData[i].Overlay0 = glm::vec2(overlay0.value[0], overlay0.value[1]);
-                        }
-                    });
-                }
+                        SDL_Log("TexCoord view was invalid");
+                        return;
+                    }
+                    for (uint32_t i = 0; i < std::min(numVertices, uint32_t(texCoordView.size())); i++)
+                    {
+                        auto texCoord = texCoordView[i];
+                        vertexData[i].TexCoord = glm::vec2(texCoord.value[0], texCoord.value[1]);
+                    }
+                });
+            }
+            if (overlay0Accessor)
+            {
+                CesiumGltf::createAccessorView(model, *overlay0Accessor, [&](auto&& overlay0View)
+                {
+                    if (overlay0View.status() != CesiumGltf::AccessorViewStatus::Valid)
+                    {
+                        SDL_Log("Overlay0 view was invalid");
+                        return;
+                    }
+                    for (uint32_t i = 0; i < std::min(numVertices, uint32_t(overlay0View.size())); i++)
+                    {
+                        auto overlay0 = overlay0View[i];
+                        vertexData[i].Overlay0 = glm::vec2(overlay0.value[0], overlay0.value[1]);
+                    }
+                });
             }
             SDL_UnmapGPUTransferBuffer(Device, vertexTransferBuffer);
             {
@@ -144,7 +275,7 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                 SDL_GPUBufferRegion region{};
                 location.transfer_buffer = vertexTransferBuffer;
                 region.buffer = vertexBuffer;
-                region.size = numVertices * sizeof(SDLPrepareRendererResourcesTileMeshVertex);
+                region.size = numVertices * sizeof(SDLPrepareRendererResourcesVertex);
                 SDL_UploadToGPUBuffer(copyPass, &location, &region, false);
             }
             SDL_ReleaseGPUTransferBuffer(Device, vertexTransferBuffer);
@@ -231,12 +362,14 @@ CesiumAsync::Future<Cesium3DTilesSelection::TileLoadResultAndRenderResources> SD
                     SDL_ReleaseGPUBuffer(Device, vertexBuffer);
                     SDL_ReleaseGPUTransferBuffer(Device, indexTransferBuffer);
                     SDL_ReleaseGPUBuffer(Device, indexBuffer);
+                    SDL_ReleaseGPUTexture(Device, baseColorTexture);
                     return;
                 }
             }
             resources->Primitives.push_back({
                 vertexBuffer,
                 indexBuffer,
+                baseColorTexture,
                 numVertices,
                 numIndices,
                 indexElementSize,
@@ -271,10 +404,11 @@ void SDLPrepareRendererResources::free(
             return;
         }
         SDLPrepareRendererResourcesTile* resources = static_cast<SDLPrepareRendererResourcesTile*>(tile);
-        for (SDLPrepareRendererResourcesTileMesh& primitive : resources->Primitives)
+        for (SDLPrepareRendererResourcesPrimitive& primitive : resources->Primitives)
         {
             SDL_ReleaseGPUBuffer(Device, primitive.VertexBuffer);
             SDL_ReleaseGPUBuffer(Device, primitive.IndexBuffer);
+            SDL_ReleaseGPUTexture(Device, primitive.BaseColorTexture);
         }
         delete resources;
     };
@@ -313,7 +447,7 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
     {
         return;
     }
-    resources->RasterOverlays.emplace_back(texture, translation, scale);
+    resources->Overlays.emplace_back(texture, translation, scale);
 }
 
 void SDLPrepareRendererResources::detachRasterInMainThread(
@@ -342,11 +476,11 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     {
         return;
     }
-    for (auto it = resources->RasterOverlays.begin(); it != resources->RasterOverlays.end(); it++)
+    for (auto it = resources->Overlays.begin(); it != resources->Overlays.end(); it++)
     {
         if (it->Texture == texture)
         {
-            resources->RasterOverlays.erase(it);
+            resources->Overlays.erase(it);
             break;
         }
     }
@@ -356,87 +490,7 @@ void* SDLPrepareRendererResources::prepareRasterInLoadThread(
     CesiumGltf::ImageAsset& image,
     const std::any& rendererOptions)
 {
-    if (image.width == 0 || image.height == 0 || image.bytesPerChannel != 1 || image.pixelData.empty())
-    {
-        SDL_Log("Tried to prepare an invalid image");
-        return nullptr;
-    }
-    if (image.channels != 4)
-    {
-        image.changeNumberOfChannels(4, std::byte{255});
-    }
-    SDL_GPUTexture* texture = nullptr;
-    {
-        SDL_GPUTextureCreateInfo info{};
-        info.type = SDL_GPU_TEXTURETYPE_2D;
-        info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-        info.width = image.width;
-        info.height = image.height;
-        info.layer_count_or_depth = 1;
-        info.num_levels = 1;
-        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
-        info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-        texture = SDL_CreateGPUTexture(Device, &info);
-    }
-    if (!texture)
-    {
-        SDL_Log("Failed to create raster overlay texture: %s", SDL_GetError());
-        return nullptr;
-    }
-    SDL_GPUTransferBuffer* transferBuffer = nullptr;
-    {
-        SDL_GPUTransferBufferCreateInfo info{};
-        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-        info.size = image.pixelData.size();
-        transferBuffer = SDL_CreateGPUTransferBuffer(Device, &info);
-    }
-    if (!transferBuffer)
-    {
-        SDL_Log("Failed to create transfer buffer: %s", SDL_GetError());
-        SDL_ReleaseGPUTexture(Device, texture);
-        return nullptr;
-    }
-    void* textureData = SDL_MapGPUTransferBuffer(Device, transferBuffer, false);
-    if (!textureData)
-    {
-        SDL_Log("Failed to map transfer buffer: %s", SDL_GetError());
-        SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
-        SDL_ReleaseGPUTexture(Device, texture);
-        return nullptr;
-    }
-    std::memcpy(textureData, image.pixelData.data(), image.pixelData.size());
-    SDL_UnmapGPUTransferBuffer(Device, transferBuffer);
-    SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(Device);
-    if (!commandBuffer)
-    {
-        SDL_Log("Failed to acquire command buffer: %s", SDL_GetError());
-        SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
-        SDL_ReleaseGPUTexture(Device, texture);
-        return nullptr;
-    }
-    SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
-    if (!copyPass)
-    {
-        SDL_Log("Failed to begin copy pass: %s", SDL_GetError());
-        SDL_CancelGPUCommandBuffer(commandBuffer);
-        SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
-        SDL_ReleaseGPUTexture(Device, texture);
-        return nullptr;
-    }
-    {
-        SDL_GPUTextureTransferInfo info{};
-        info.transfer_buffer = transferBuffer;
-        SDL_GPUTextureRegion region{};
-        region.texture = texture;
-        region.w = image.width;
-        region.h = image.height;
-        region.d = 1;
-        SDL_UploadToGPUTexture(copyPass, &info, &region, false);
-    }
-    SDL_EndGPUCopyPass(copyPass);
-    SDL_ReleaseGPUTransferBuffer(Device, transferBuffer);
-    SDL_SubmitGPUCommandBuffer(commandBuffer);
-    return texture;
+    return CreateTextureFromImage(Device, image);
 }
 
 void* SDLPrepareRendererResources::prepareRasterInMainThread(
