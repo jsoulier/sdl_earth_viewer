@@ -18,7 +18,6 @@ static constexpr double kFar = kNear * 1e8;
 static constexpr double kEarthRadius = 6378.137e3;
 static constexpr double kMinDistanceToEarth = 100.0;
 static constexpr double kArcSpeed = 0.005;
-static constexpr double kPanSpeed = 0.001;
 static constexpr double kZoomSpeed = 0.1;
 static constexpr double kFovY = glm::radians(45.0);
 

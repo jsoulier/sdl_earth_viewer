@@ -22,6 +22,7 @@ static SDL_Window* window;
 static SDL_GPUDevice* device;
 static SDL_GPUTexture* depthTexture;
 static SDL_GPUGraphicsPipeline* tilesetPipeline;
+static SDL_GPUGraphicsPipeline* axesPipeline;
 static SDL_GPUTexture* defaultRasterTexture;
 static SDL_GPUSampler* defaultRasterSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
@@ -31,32 +32,33 @@ static SDLCamera camera;
 static uint64_t time1;
 static uint64_t time2;
 static float dt;
+static bool drawDebugAxes = false;
 
 static bool CreateTilesetPipeline()
 {
-    SDL_GPUColorTargetDescription colorTargets[1]{};
-    colorTargets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
-    SDL_GPUVertexAttribute vertexAttributes[2]{};
-    vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Position);
-    vertexAttributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-    vertexAttributes[1].location = 1;
-    vertexAttributes[1].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Overlay0);
-    SDL_GPUVertexBufferDescription vertexBuffers[1]{};
-    vertexBuffers[0].pitch = sizeof(SDLPrepareRendererResourcesTileMeshVertex);
-    vertexBuffers[0].slot = 0;
+    SDL_GPUColorTargetDescription targets[1]{};
+    targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
+    SDL_GPUVertexAttribute attributes[2]{};
+    attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+    attributes[0].location = 0;
+    attributes[0].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Position);
+    attributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+    attributes[1].location = 1;
+    attributes[1].offset = offsetof(SDLPrepareRendererResourcesTileMeshVertex, Overlay0);
+    SDL_GPUVertexBufferDescription buffers[1]{};
+    buffers[0].pitch = sizeof(SDLPrepareRendererResourcesTileMeshVertex);
+    buffers[0].slot = 0;
     SDL_GPUGraphicsPipelineCreateInfo info{};
     info.vertex_shader = LoadShader(device, "tileset.vert");
     info.fragment_shader = LoadShader(device, "tileset.frag");
     info.target_info.num_color_targets = 1;
-    info.target_info.color_target_descriptions = colorTargets;
+    info.target_info.color_target_descriptions = targets;
     info.target_info.has_depth_stencil_target = true;
     info.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
     info.vertex_input_state.num_vertex_attributes = 2;
-    info.vertex_input_state.vertex_attributes = vertexAttributes;
+    info.vertex_input_state.vertex_attributes = attributes;
     info.vertex_input_state.num_vertex_buffers = 1;
-    info.vertex_input_state.vertex_buffer_descriptions = vertexBuffers;
+    info.vertex_input_state.vertex_buffer_descriptions = buffers;
     info.depth_stencil_state.enable_depth_test = true;
     info.depth_stencil_state.enable_depth_write = true;
     info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
@@ -69,6 +71,30 @@ static bool CreateTilesetPipeline()
     SDL_ReleaseGPUShader(device, info.vertex_shader);
     SDL_ReleaseGPUShader(device, info.fragment_shader);
     return tilesetPipeline != nullptr;
+}
+
+static bool CreateAxesPipeline()
+{
+    SDL_GPUColorTargetDescription targets[1]{};
+    targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
+    SDL_GPUGraphicsPipelineCreateInfo info{};
+    info.vertex_shader = LoadShader(device, "axes.vert");
+    info.fragment_shader = LoadShader(device, "axes.frag");
+    info.target_info.num_color_targets = 1;
+    info.target_info.color_target_descriptions = targets;
+    info.target_info.has_depth_stencil_target = true;
+    info.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+    info.depth_stencil_state.enable_depth_test = true;
+    info.depth_stencil_state.enable_depth_write = true;
+    info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_LINELIST;
+    if (info.vertex_shader && info.fragment_shader)
+    {
+        axesPipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
+    }
+    SDL_ReleaseGPUShader(device, info.vertex_shader);
+    SDL_ReleaseGPUShader(device, info.fragment_shader);
+    return axesPipeline != nullptr;
 }
 
 static bool CreateDefaultRasterOverlay()
@@ -208,6 +234,11 @@ static bool Init()
         SDL_Log("Failed to create tileset pipeline");
         return false;
     }
+    if (!CreateAxesPipeline())
+    {
+        SDL_Log("Failed to create axes pipeline");
+        return false;
+    }
     if (!CreateDefaultRasterOverlay())
     {
         SDL_Log("Failed to create default raster overlay");
@@ -229,6 +260,7 @@ static void Quit()
     tileset.reset();
     prepareRendererResources.reset();
     SDL_ReleaseGPUGraphicsPipeline(device, tilesetPipeline);
+    SDL_ReleaseGPUGraphicsPipeline(device, axesPipeline);
     SDL_ReleaseGPUTexture(device, depthTexture);
     SDL_ReleaseGPUTexture(device, defaultRasterTexture);
     SDL_ReleaseGPUSampler(device, defaultRasterSampler);
@@ -310,8 +342,10 @@ static void Render()
         SDL_SubmitGPUCommandBuffer(commandBuffer);
         return;
     }
+    const glm::dmat4 viewMatrix = camera.GetViewMatrix();
+    const glm::dmat4 projMatrix = camera.GetProjMatrix();
+    const glm::dmat4 viewProjMatrix = projMatrix * viewMatrix;
     {
-        DebugGroupBlock(commandBuffer, "Render::Tileset");
         SDL_GPUColorTargetInfo colorInfo{};
         colorInfo.texture = swapchainTexture;
         colorInfo.load_op = SDL_GPU_LOADOP_CLEAR;
@@ -331,9 +365,7 @@ static void Render()
         }
         if (tileset)
         {
-            const glm::dmat4 viewMatrix = camera.GetViewMatrix();
-            const glm::dmat4 projMatrix = camera.GetProjMatrix();
-            const glm::dmat4 viewProjMatrix = projMatrix * viewMatrix;
+            DebugGroupBlock(commandBuffer, "Render::Tileset");
             SDL_BindGPUGraphicsPipeline(renderPass, tilesetPipeline);
             const Cesium3DTilesSelection::ViewUpdateResult& result = tileset->Update(camera);
             for (const Cesium3DTilesSelection::Tile::ConstPointer& tile : result.tilesToRenderThisFrame)
@@ -384,6 +416,25 @@ static void Render()
                 }
             }
         }
+        if (drawDebugAxes)
+        {
+            DebugGroupBlock(commandBuffer, "Render::DebugAxes");
+            SDL_BindGPUGraphicsPipeline(renderPass, axesPipeline);
+            const double kAxisLength = 1e10;
+            static const glm::dvec3 kPositions[6] =
+            {
+                glm::dvec3(-kAxisLength, 0.0, 0.0), glm::dvec3(kAxisLength, 0.0, 0.0),
+                glm::dvec3(0.0, -kAxisLength, 0.0), glm::dvec3(0.0, kAxisLength, 0.0),
+                glm::dvec3(0.0, 0.0, -kAxisLength), glm::dvec3(0.0, 0.0, kAxisLength)
+            };
+            glm::vec4 positions[6];
+            for (int i = 0; i < 6; ++i)
+            {
+                positions[i] = glm::vec4(viewProjMatrix * glm::dvec4(kPositions[i], 1.0));
+            }
+            SDL_PushGPUVertexUniformData(commandBuffer, 0, positions, sizeof(positions));
+            SDL_DrawGPUPrimitives(renderPass, 6, 1, 0, 0);
+        }
         SDL_EndGPURenderPass(renderPass);
     }
     {
@@ -397,6 +448,8 @@ static void Render()
         ImGui::Text("Driver: %s", SDL_GetGPUDeviceDriver(device));
         ImGui::Text("FPS: %.1f", 1e9f / dt);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
+        ImGui::Checkbox("Draw Axes", &drawDebugAxes);
+        ImGui::TextDisabled("Red: X, Green: Y, Blue: Z");
         if (tileset)
         {
             tileset->RenderImGui();

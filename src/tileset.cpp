@@ -22,7 +22,7 @@
 #include "tileset.hpp"
 
 static constexpr int kDefaultIonAssetID = 1;
-static constexpr int kDefaultIonImageryID = 2;
+static constexpr int kDefaultIonImageryID = 3;
 static constexpr const char* kDefaultIonTokenFileName = "cesium_ion_token.txt";
 static constexpr double kZero = 0.0;
 static constexpr double kMaxSSE = 256.0;
@@ -62,9 +62,13 @@ SDLTilesetConfig::SDLTilesetConfig()
     : IonAssetID{kDefaultIonAssetID}
     , IonImageryID{kDefaultIonImageryID}
 {
+    TilesetOptions.loadErrorCallback = [](const Cesium3DTilesSelection::TilesetLoadFailureDetails& details)
+    {
+        SDL_Log("%s", details.message.data());
+    };
     TilesetOptions.forbidHoles = true;
-    TilesetOptions.enableFrustumCulling = false; // TODO: figure out why their frustum culling is over-culling
-
+    // TODO: figure out why their frustum culling is over-culling
+    TilesetOptions.enableFrustumCulling = false;
     const char* home = SDL_GetUserFolder(SDL_FOLDER_HOME);
     if (home)
     {
