@@ -24,16 +24,19 @@ static SDL_GPUDevice* device;
 static SDL_GPUTexture* depthTexture;
 static SDL_GPUGraphicsPipeline* tilesetPipeline;
 static SDL_GPUGraphicsPipeline* axesPipeline;
+static SDL_GPUGraphicsPipeline* atmospherePipeline;
 static SDL_GPUTexture* defaultTexture;
 static SDL_GPUSampler* defaultSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
 static SDLTilesetConfig tilesetConfig;
 static std::shared_ptr<SDLTileset> tileset;
 static SDLCamera camera;
+static glm::vec3 sunDirection = glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f));
 static uint64_t time1;
 static uint64_t time2;
 static float dt;
 static bool drawDebugAxes = false;
+static bool drawAtmosphere = true;
 
 static bool CreateTilesetPipeline()
 {
@@ -99,6 +102,32 @@ static bool CreateAxesPipeline()
     SDL_ReleaseGPUShader(device, info.vertex_shader);
     SDL_ReleaseGPUShader(device, info.fragment_shader);
     return axesPipeline != nullptr;
+}
+
+static bool CreateAtmospherePipeline()
+{
+    SDL_GPUColorTargetDescription targets[1]{};
+    targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
+    targets[0].blend_state.enable_blend = true;
+    targets[0].blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    targets[0].blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    targets[0].blend_state.color_blend_op = SDL_GPU_BLENDOP_ADD;
+    targets[0].blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    targets[0].blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    targets[0].blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+    SDL_GPUGraphicsPipelineCreateInfo info{};
+    info.vertex_shader = LoadShader(device, "atmosphere.vert");
+    info.fragment_shader = LoadShader(device, "atmosphere.frag");
+    info.target_info.num_color_targets = 1;
+    info.target_info.color_target_descriptions = targets;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    if (info.vertex_shader && info.fragment_shader)
+    {
+        atmospherePipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
+    }
+    SDL_ReleaseGPUShader(device, info.vertex_shader);
+    SDL_ReleaseGPUShader(device, info.fragment_shader);
+    return atmospherePipeline != nullptr;
 }
 
 static bool CreateDefaultRasterOverlay()
@@ -244,6 +273,11 @@ static bool Init()
         SDL_Log("Failed to create axes pipeline");
         return false;
     }
+    if (!CreateAtmospherePipeline())
+    {
+        SDL_Log("Failed to create atmosphere pipeline");
+        return false;
+    }
     if (!CreateDefaultRasterOverlay())
     {
         SDL_Log("Failed to create default raster overlay");
@@ -266,6 +300,7 @@ static void Quit()
     prepareRendererResources.reset();
     SDL_ReleaseGPUGraphicsPipeline(device, tilesetPipeline);
     SDL_ReleaseGPUGraphicsPipeline(device, axesPipeline);
+    SDL_ReleaseGPUGraphicsPipeline(device, atmospherePipeline);
     SDL_ReleaseGPUTexture(device, depthTexture);
     SDL_ReleaseGPUTexture(device, defaultTexture);
     SDL_ReleaseGPUSampler(device, defaultSampler);
@@ -350,6 +385,8 @@ static void Render()
     const glm::dmat4 viewMatrix = camera.GetViewMatrix();
     const glm::dmat4 projMatrix = camera.GetProjMatrix();
     const glm::dmat4 viewProjMatrix = projMatrix * viewMatrix;
+    const glm::mat4 inverseViewProj = glm::inverse(glm::mat4(viewProjMatrix));
+    const glm::vec4 cameraPosition = glm::vec4(camera.GetPosition(), 1.0f);
     {
         SDL_GPUColorTargetInfo colorInfo{};
         colorInfo.texture = swapchainTexture;
@@ -395,6 +432,8 @@ static void Render()
                 }
                 for (const SDLPrepareRendererResourcesPrimitive& primitive : resources->Primitives)
                 {
+                    const glm::mat4 mvp = glm::mat4(viewProjMatrix * primitive.Transform);
+                    const glm::mat4 model = glm::mat4(primitive.Transform);
                     glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                     int32_t tileType = -1;
                     if (primitive.BaseColorTexture && primitive.BaseColorTexture)
@@ -413,14 +452,15 @@ static void Render()
                         samplerBinding.texture = defaultTexture;
                         tileType = 2;
                     }
+                    SDL_GPUBufferBinding vertexBinding{};
+                    vertexBinding.buffer = primitive.VertexBuffer;
+                    SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
+                    SDL_PushGPUVertexUniformData(commandBuffer, 0, &mvp, sizeof(mvp));
+                    SDL_PushGPUVertexUniformData(commandBuffer, 1, &model, sizeof(model));
                     SDL_BindGPUFragmentSamplers(renderPass, 0, &samplerBinding, 1);
                     SDL_PushGPUFragmentUniformData(commandBuffer, 0, &rasterData, sizeof(rasterData));
                     SDL_PushGPUFragmentUniformData(commandBuffer, 1, &tileType, sizeof(tileType));
-                    SDL_GPUBufferBinding vertexBinding{};
-                    vertexBinding.buffer = primitive.VertexBuffer;
-                    const glm::mat4 mvpMatrix = glm::mat4(viewProjMatrix * primitive.Transform);
-                    SDL_PushGPUVertexUniformData(commandBuffer, 0, &mvpMatrix, sizeof(mvpMatrix));
-                    SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
+                    SDL_PushGPUFragmentUniformData(commandBuffer, 2, &sunDirection, sizeof(sunDirection));
                     if (primitive.IndexBuffer)
                     {
                         SDL_GPUBufferBinding indexBinding{};
@@ -456,6 +496,28 @@ static void Render()
         }
         SDL_EndGPURenderPass(renderPass);
     }
+    if (drawAtmosphere)
+    {
+        DebugGroupBlock(commandBuffer, "Render::Atmosphere");
+        SDL_GPUColorTargetInfo colorInfo{};
+        colorInfo.texture = swapchainTexture;
+        colorInfo.load_op = SDL_GPU_LOADOP_LOAD;
+        colorInfo.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorInfo, 1, nullptr);
+        if (renderPass)
+        {
+            SDL_GPUTextureSamplerBinding depthBinding{};
+            depthBinding.texture = depthTexture;
+            depthBinding.sampler = defaultSampler;
+            SDL_BindGPUGraphicsPipeline(renderPass, atmospherePipeline);
+            SDL_PushGPUFragmentUniformData(commandBuffer, 0, &inverseViewProj, sizeof(inverseViewProj));
+            SDL_PushGPUFragmentUniformData(commandBuffer, 1, &cameraPosition, sizeof(cameraPosition));
+            SDL_PushGPUFragmentUniformData(commandBuffer, 2, &sunDirection, sizeof(sunDirection));
+            SDL_BindGPUFragmentSamplers(renderPass, 0, &depthBinding, 1);
+            SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(renderPass);
+        }
+    }
     {
         DebugGroupBlock(commandBuffer, "Render::PrepareImGui");
         ImGui_ImplSDL3_NewFrame();
@@ -468,6 +530,14 @@ static void Render()
         ImGui::Text("FPS: %.1f", 1e9f / dt);
         ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
         ImGui::Checkbox("Draw Axes", &drawDebugAxes);
+        ImGui::Checkbox("Draw Atmosphere", &drawAtmosphere);
+        if (ImGui::DragFloat3("Sun Direction", &sunDirection.x, 0.01f, -1.0f, 1.0f))
+        {
+            if (glm::length(sunDirection) > 0.001f)
+            {
+                sunDirection = glm::normalize(sunDirection);
+            }
+        }
         ImGui::TextDisabled("Red: X, Green: Y, Blue: Z");
         if (tileset)
         {

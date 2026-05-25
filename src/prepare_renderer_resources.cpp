@@ -22,8 +22,7 @@
 #include "config.hpp"
 #include "prepare_renderer_resources.hpp"
 
-namespace {
-SDL_GPUTexture* CreateTextureFromImage(SDL_GPUDevice* device, CesiumGltf::ImageAsset& image)
+static SDL_GPUTexture* CreateTextureFromImage(SDL_GPUDevice* device, CesiumGltf::ImageAsset& image)
 {
     if (image.width == 0 || image.height == 0 || image.bytesPerChannel != 1 || image.pixelData.empty())
     {
@@ -106,7 +105,6 @@ SDL_GPUTexture* CreateTextureFromImage(SDL_GPUDevice* device, CesiumGltf::ImageA
     SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
     SDL_SubmitGPUCommandBuffer(commandBuffer);
     return texture;
-}
 }
 
 SDLPrepareRendererResources::SDLPrepareRendererResources(SDL_GPUDevice* device)

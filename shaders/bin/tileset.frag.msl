@@ -3,15 +3,20 @@
 
 using namespace metal;
 
-struct type_OverlayBuffer
+struct type_UniformBuffer
 {
     float2 Translation;
     float2 Scale;
 };
 
-struct type_TextureSelectBuffer
+struct type_UniformBuffer_1
 {
     int TileType;
+};
+
+struct type_UniformBuffer_2
+{
+    float4 SunDirection;
 };
 
 struct main0_out
@@ -21,34 +26,36 @@ struct main0_out
 
 struct main0_in
 {
-    float2 in_var_TEXCOORD0 [[user(locn0)]];
+    float3 in_var_TEXCOORD0 [[user(locn0)]];
     float2 in_var_TEXCOORD1 [[user(locn1)]];
+    float2 in_var_TEXCOORD2 [[user(locn2)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant type_OverlayBuffer& OverlayBuffer [[buffer(0)]], constant type_TextureSelectBuffer& TextureSelectBuffer [[buffer(1)]], texture2d<float> ColorTexture [[texture(0)]], sampler ColorSampler [[sampler(0)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]], constant type_UniformBuffer_1& UniformBuffer_1 [[buffer(1)]], constant type_UniformBuffer_2& UniformBuffer_2 [[buffer(2)]], texture2d<float> ColorTexture [[texture(0)]], sampler ColorSampler [[sampler(0)]])
 {
     main0_out out = {};
-    float2 _57;
-    if (TextureSelectBuffer.TileType == 0)
+    float2 _67;
+    if (UniformBuffer_1.TileType == 0)
     {
-        _57 = in.in_var_TEXCOORD0;
+        _67 = in.in_var_TEXCOORD1;
     }
     else
     {
-        float2 _56;
-        if (TextureSelectBuffer.TileType == 1)
+        float2 _66;
+        if (UniformBuffer_1.TileType == 1)
         {
-            float2 _52 = (in.in_var_TEXCOORD1 * OverlayBuffer.Scale) + OverlayBuffer.Translation;
-            _52.y = 1.0 - _52.y;
-            _56 = _52;
+            float2 _62 = (in.in_var_TEXCOORD2 * UniformBuffer.Scale) + UniformBuffer.Translation;
+            _62.y = 1.0 - _62.y;
+            _66 = _62;
         }
         else
         {
-            _56 = float2(0.0);
+            _66 = float2(0.0);
         }
-        _57 = _56;
+        _67 = _66;
     }
-    out.out_var_SV_Target = ColorTexture.sample(ColorSampler, _57);
+    float4 _71 = ColorTexture.sample(ColorSampler, _67);
+    out.out_var_SV_Target = float4(_71.xyz * (precise::max(0.0, dot(fast::normalize(in.in_var_TEXCOORD0), UniformBuffer_2.SunDirection.xyz)) + 0.0199999995529651641845703125), _71.w);
     return out;
 }
 
