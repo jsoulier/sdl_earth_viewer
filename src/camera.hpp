@@ -15,7 +15,10 @@ public:
     glm::dmat4 GetProjMatrix() const;
     glm::dmat4 GetViewMatrix() const;
     glm::dvec3 GetPosition() const;
+    glm::dvec3 GetTarget() const;
     double GetDistance() const;
+    double GetPitch() const;
+    double GetYaw() const;
     uint32_t GetWidth() const;
     uint32_t GetHeight() const;
     double GetAspectRatio() const;

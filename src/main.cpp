@@ -520,15 +520,31 @@ static void Render()
     }
     {
         DebugGroupBlock(commandBuffer, "Render::PrepareImGui");
+        SDL_PropertiesID properties = SDL_GetGPUDeviceProperties(device);
         ImGui_ImplSDL3_NewFrame();
         ImGui_ImplSDLGPU3_NewFrame();
         ImGui::NewFrame();
         ImGui::Begin("Debug");
-        SDL_PropertiesID properties = SDL_GetGPUDeviceProperties(device);
+        ImGui::SeparatorText("Debug");
         ImGui::Text("GPU: %s", SDL_GetStringProperty(properties, SDL_PROP_GPU_DEVICE_NAME_STRING, "Unknown"));
         ImGui::Text("Driver: %s", SDL_GetGPUDeviceDriver(device));
-        ImGui::Text("FPS: %.1f", 1e9f / dt);
-        ImGui::Text("Camera Distance: %.1f km", camera.GetDistance() / 1e3);
+        ImGui::Text("FPS: %.1f (%.2f ms)", 1e9f / dt, dt / 1e6f);
+        glm::dvec3 position = camera.GetPosition();
+        glm::dvec3 target = camera.GetTarget();
+        ImGui::Text("Position: %.1f, %.1f, %.1f", position.x, position.y, position.z);
+        ImGui::Text("Target:   %.1f, %.1f, %.1f", target.x, target.y, target.z);
+        ImGui::Text("Distance: %.1f km", camera.GetDistance() / 1e3);
+        ImGui::Text("Pitch: %.2f, Yaw: %.2f", glm::degrees(camera.GetPitch()), glm::degrees(camera.GetYaw()));
+        if (tileset)
+        {
+            tileset->RenderImGui();
+        }
+        else
+        {
+            ImGui::TextDisabled("No active tileset.");
+        }
+        ImGui::SeparatorText("Environment");
+        ImGui::TextDisabled("Red: X, Green: Y, Blue: Z");
         ImGui::Checkbox("Draw Axes", &drawDebugAxes);
         ImGui::Checkbox("Draw Atmosphere", &drawAtmosphere);
         if (ImGui::DragFloat3("Sun Direction", &sunDirection.x, 0.01f, -1.0f, 1.0f))
@@ -538,15 +554,7 @@ static void Render()
                 sunDirection = glm::normalize(sunDirection);
             }
         }
-        ImGui::TextDisabled("Red: X, Green: Y, Blue: Z");
-        if (tileset)
-        {
-            tileset->RenderImGui();
-        }
-        else
-        {
-            ImGui::TextDisabled("Failed to get ViewUpdateResult");
-        }
+        ImGui::SeparatorText("Tileset");
         if (tilesetConfig.RenderImGui())
         {
             std::shared_ptr<SDLTileset> newTileset = SDLTileset::Create(tilesetConfig);

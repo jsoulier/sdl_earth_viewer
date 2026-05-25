@@ -136,7 +136,6 @@ bool SDLTilesetConfig::RenderImGui()
     {
         IonTokenPath = std::filesystem::path(ionTokenPath);
     }
-    ImGui::Separator();
     ImGui::DragScalar("Maximum SSE", ImGuiDataType_Double, &TilesetOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxSSE);
     int maxTileLoads = static_cast<int>(TilesetOptions.maximumSimultaneousTileLoads);
     if (ImGui::DragInt("Max Tile Loads", &maxTileLoads, 1.0f, kMinTileLoads, kMaxTileLoads))
@@ -148,27 +147,25 @@ bool SDLTilesetConfig::RenderImGui()
     {
         TilesetOptions.loadingDescendantLimit = static_cast<uint32_t>(loadingLimit);
     }
+    int64_t maxCachedMB = TilesetOptions.maximumCachedBytes / (1024 * 1024);
+    if (ImGui::DragScalar("Max Cache (MB)", ImGuiDataType_S64, &maxCachedMB, 1.0f, &kMinCacheMB, &kMaxCacheMB))
+    {
+        TilesetOptions.maximumCachedBytes = maxCachedMB * 1024 * 1024;
+    }
     ImGui::Checkbox("Forbid Holes", &TilesetOptions.forbidHoles);
     ImGui::Checkbox("Preload Ancestors", &TilesetOptions.preloadAncestors);
     ImGui::Checkbox("Preload Siblings", &TilesetOptions.preloadSiblings);
     ImGui::Checkbox("Frustum Culling", &TilesetOptions.enableFrustumCulling);
     ImGui::Checkbox("Occlusion Culling", &TilesetOptions.enableOcclusionCulling);
     ImGui::Checkbox("Fog Culling", &TilesetOptions.enableFogCulling);
-    int64_t maxCachedMB = TilesetOptions.maximumCachedBytes / (1024 * 1024);
-    if (ImGui::DragScalar("Max Cache (MB)", ImGuiDataType_S64, &maxCachedMB, 1.0f, &kMinCacheMB, &kMaxCacheMB))
-    {
-        TilesetOptions.maximumCachedBytes = maxCachedMB * 1024 * 1024;
-    }
-    ImGui::Separator();
-    ImGui::DragInt("Raster Max Texture Size", &RasterOverlayOptions.maximumTextureSize, 1.0f, kMinRasterTextureSize, kMaxRasterTextureSize);
-    ImGui::DragScalar("Raster Max SSE", ImGuiDataType_Double, &RasterOverlayOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxRasterSSE);
-    return ImGui::Button("Create Tileset");
+    ImGui::DragInt("Max Texture Size", &RasterOverlayOptions.maximumTextureSize, 1.0f, kMinRasterTextureSize, kMaxRasterTextureSize);
+    ImGui::DragScalar("Max SSE", ImGuiDataType_Double, &RasterOverlayOptions.maximumScreenSpaceError, 0.1f, &kZero, &kMaxRasterSSE);
+    return ImGui::Button("Recreate Tileset");
 }
 
 void SDLTileset::RenderImGui() const
 {
     const Cesium3DTilesSelection::ViewUpdateResult& result = Tileset->getDefaultViewGroup().getViewUpdateResult();
-    ImGui::Separator();
     ImGui::Text("Tiles to Render: %zu", result.tilesToRenderThisFrame.size());
     ImGui::Text("Tiles Visited: %u", result.tilesVisited);
     ImGui::Text("Tiles Culled: %u", result.tilesCulled);

@@ -117,9 +117,24 @@ glm::dvec3 SDLCamera::GetPosition() const
     return Target + glm::dvec3{x, y, z};
 }
 
+glm::dvec3 SDLCamera::GetTarget() const
+{
+    return Target;
+}
+
 double SDLCamera::GetDistance() const
 {
     return Distance;
+}
+
+double SDLCamera::GetPitch() const
+{
+    return Pitch;
+}
+
+double SDLCamera::GetYaw() const
+{
+    return Yaw;
 }
 
 uint32_t SDLCamera::GetWidth() const
