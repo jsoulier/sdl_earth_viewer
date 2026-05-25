@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(sdl_earth)
+project(sdl_earth_viewer)
 
 set(BINARY_DIR ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_DIR})
@@ -24,7 +24,7 @@ add_subdirectory(lib/cesium-native)
 add_subdirectory(lib/glm)
 add_subdirectory(lib/imgui)
 add_subdirectory(lib/json)
-add_executable(sdl_earth WIN32
+add_executable(sdl_earth_viewer WIN32
     src/camera.cpp
     src/debug_group.cpp
     src/main.cpp
@@ -33,7 +33,7 @@ add_executable(sdl_earth WIN32
     src/task_processor.cpp
     src/tileset.cpp
 )
-target_link_libraries(sdl_earth PRIVATE
+target_link_libraries(sdl_earth_viewer PRIVATE
     Cesium3DTilesSelection
     CesiumAsync
     CesiumCurl
@@ -46,9 +46,9 @@ target_link_libraries(sdl_earth PRIVATE
     imgui
     nlohmann_json
 )
-target_compile_definitions(sdl_earth PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
-set_target_properties(sdl_earth PROPERTIES CXX_STANDARD 23)
-target_precompile_headers(sdl_earth PRIVATE
+target_compile_definitions(sdl_earth_viewer PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
+set_target_properties(sdl_earth_viewer PROPERTIES CXX_STANDARD 23)
+target_precompile_headers(sdl_earth_viewer PRIVATE
     <Cesium3DTilesSelection/BoundingVolume.h>
     <Cesium3DTilesSelection/IPrepareRendererResources.h>
     <Cesium3DTilesSelection/Tile.h>
@@ -115,7 +115,7 @@ function(add_shader FILE)
         string(REPLACE . _ NAME ${NAME})
         set(NAME compile_${NAME})
         add_custom_target(${NAME} DEPENDS ${OUTPUT})
-        add_dependencies(sdl_earth ${NAME})
+        add_dependencies(sdl_earth_viewer ${NAME})
     endfunction()
     if (EXISTS ${SHADERCROSS})
         compile(${SPV})
@@ -137,7 +137,7 @@ function(add_shader FILE)
         string(REPLACE . _ NAME ${NAME})
         set(NAME package_${NAME})
         add_custom_target(${NAME} DEPENDS ${BINARY})
-        add_dependencies(sdl_earth ${NAME})
+        add_dependencies(sdl_earth_viewer ${NAME})
     endfunction()
     if(APPLE)
         package(${MSL})

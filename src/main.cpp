@@ -1,3 +1,4 @@
+#include <Cesium3DTilesContent/registerAllTileContentTypes.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <imgui.h>
@@ -185,6 +186,7 @@ static bool Init()
 #ifndef NDEBUG
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
 #endif
+    Cesium3DTilesContent::registerAllTileContentTypes();
     SDL_SetAppMetadata("SDL Earth", nullptr, nullptr);
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
