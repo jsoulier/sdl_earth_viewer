@@ -10,8 +10,7 @@
 
 #include "camera.hpp"
 
-static constexpr glm::dvec3 kUp = glm::dvec3(0.0, 0.0, 1.0); // Z is up in ECEF
-static constexpr glm::dmat4 kFlipY = glm::dmat4(1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+static constexpr glm::dvec3 kUp = glm::dvec3(0.0, 1.0, 0.0);
 static constexpr double kMaxPitch = glm::pi<double>() / 2.0 - 0.001;
 static constexpr double kNear = 1.0;
 static constexpr double kFar = kNear * 1e8;
@@ -66,17 +65,12 @@ bool SDLCamera::IsValid() const
 
 Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
 {
-    return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetViewStateProjMatrix(), glm::dvec2(Viewport));
-}
-
-glm::dmat4 SDLCamera::GetViewStateProjMatrix() const
-{
-    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kFar);
+    return Cesium3DTilesSelection::ViewState(GetViewMatrix(), GetProjMatrix(), glm::dvec2(Viewport));
 }
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    return kFlipY * GetViewStateProjMatrix();
+    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kFar);
 }
 
 glm::dmat4 SDLCamera::GetViewMatrix() const
@@ -86,9 +80,9 @@ glm::dmat4 SDLCamera::GetViewMatrix() const
 
 glm::dvec3 SDLCamera::GetPosition() const
 {
-    double x = Distance * std::cos(Pitch) * std::cos(Yaw);
-    double y = Distance * std::cos(Pitch) * std::sin(Yaw);
-    double z = Distance * std::sin(Pitch);
+    double x = Distance * std::cos(Pitch) * std::sin(Yaw);
+    double y = Distance * std::sin(Pitch);
+    double z = Distance * std::cos(Pitch) * std::cos(Yaw);
     return Target + glm::dvec3{x, y, z};
 }
 

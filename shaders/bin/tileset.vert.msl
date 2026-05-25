@@ -23,7 +23,9 @@ struct main0_in
 vertex main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]])
 {
     main0_out out = {};
-    out.gl_Position = UniformBuffer.ModelViewProjection * float4(in.in_var_TEXCOORD0, 1.0);
+    float4 _34 = UniformBuffer.ModelViewProjection * float4(in.in_var_TEXCOORD0, 1.0);
+    _34.y = _34.y * (-1.0);
+    out.gl_Position = _34;
     out.out_var_TEXCOORD0 = in.in_var_TEXCOORD1;
     return out;
 }

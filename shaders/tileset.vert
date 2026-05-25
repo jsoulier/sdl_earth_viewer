@@ -19,6 +19,7 @@ Output main(Input input)
 {
     Output output;
     output.Position = mul(ModelViewProjection, float4(input.Position, 1.0f));
+    output.Position.y *= -1.0;
     output.TexCoord = input.TexCoord;
     return output;
 }

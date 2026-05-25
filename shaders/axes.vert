@@ -20,6 +20,7 @@ Output main(uint VertexIndex : SV_VertexID)
 {
     Output output;
     output.Position = Positions[VertexIndex];
+    output.Position.y *= -1.0;
     output.Color = kColors[VertexIndex];
     return output;
 }
