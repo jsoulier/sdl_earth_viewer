@@ -109,7 +109,7 @@ float4 main(Input input) : SV_Target
 {
     float rawDepth = DepthTexture.Sample(DepthSampler, input.TexCoord).r;
     float2 screenPosition = input.TexCoord * 2.0 - 1.0;
-    screenPosition.y = -screenPosition.y;
+    // screenPosition.y = -screenPosition.y;
     float3 rayOrigin = CameraPosition.xyz;
     float4 farWorldFull = mul(InverseViewProjection, float4(screenPosition, 0.0, 1.0));
     float3 rayDirection;
