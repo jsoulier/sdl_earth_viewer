@@ -1,13 +1,13 @@
 # SDL Earth Viewer
 
+Earth Viewer using SDL3 GPU and Cesium Native
+
 ![](doc/image4.png)
 ![](doc/image2.png)
 ![](doc/image5.png)
 ![](doc/image6.png)
 ![](doc/image3.png)
 ![](doc/image1.png)
-
-Earth Viewer using SDL3 GPU and Cesium Native
 
 ### Features
 
@@ -36,11 +36,12 @@ You should see "Successfully refreshed Cesium ion token for URL..." upon launchi
 
 #### Assets
 
+Cesium Ion comes with free assets:
 1. Go to [My Assets](https://ion.cesium.com/assets)
 2. Specify the maps you'd like to load in ImGui and click "Recreate"
-   - For terrain/imagery, use the terrain ID for "Ion Asset ID" and the imagery ID for "Ion Imagery ID"
-   - For 3D tiles, use ID for "Ion Asset ID" and `-1` for "Ion Imagery ID"
-3. You can grab more maps from [Asset Depot](https://ion.cesium.com/assetdepot) but I haven't tested it much
+3. For terrain/imagery, use the terrain ID for "Ion Asset ID" and the imagery ID for "Ion Imagery ID"
+4. For 3D tiles, use ID for "Ion Asset ID" and `-1` for "Ion Imagery ID"
+5. You can grab more maps from [Asset Depot](https://ion.cesium.com/assetdepot) but I haven't tested it much
 
 #### Windows
 
