@@ -12,7 +12,6 @@
 #include <memory>
 
 #include "camera.hpp"
-#include "config.hpp"
 #include "debug_group.hpp"
 #include "prepare_renderer_resources.hpp"
 #include "shader.hpp"
@@ -317,6 +316,7 @@ static bool Init()
         return false;
     }
     prepareRendererResources = std::make_shared<SDLPrepareRendererResources>(device);
+    tilesetConfig = SDLTilesetConfig::Load();
     tilesetConfig.PrepareRendererResources = prepareRendererResources;
     tileset = SDLTileset::Create(tilesetConfig);
     if (!tileset)

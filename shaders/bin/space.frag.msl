@@ -60,11 +60,11 @@ struct type_UniformBuffer_2
     float Padding0;
 };
 
-constant float3 _80 = {};
+constant float3 _81 = {};
 
-constant spvUnsafeArray<float, 3> _83 = spvUnsafeArray<float, 3>({ 8000.0, 800.0, 20.0 });
-constant spvUnsafeArray<float, 3> _84 = spvUnsafeArray<float, 3>({ 0.4000000059604644775390625, 0.699999988079071044921875, 0.949999988079071044921875 });
-constant spvUnsafeArray<float, 3> _85 = spvUnsafeArray<float, 3>({ 10.0, 1.5, 0.300000011920928955078125 });
+constant spvUnsafeArray<float, 3> _84 = spvUnsafeArray<float, 3>({ 16000.0, 1600.0, 40.0 });
+constant spvUnsafeArray<float, 3> _85 = spvUnsafeArray<float, 3>({ 0.4000000059604644775390625, 0.699999988079071044921875, 0.949999988079071044921875 });
+constant spvUnsafeArray<float, 3> _86 = spvUnsafeArray<float, 3>({ 10.0, 1.5, 0.300000011920928955078125 });
 
 struct main0_out
 {
@@ -79,36 +79,17 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]], constant type_UniformBuffer_1& UniformBuffer_1 [[buffer(1)]], constant type_UniformBuffer_2& UniformBuffer_2 [[buffer(2)]])
 {
     main0_out out = {};
-    float4 _101 = UniformBuffer.InverseViewProjection * float4((in.in_var_TEXCOORD0 * 2.0) - float2(1.0), 0.0, 1.0);
-    float _102 = _101.w;
-    float3 _114;
-    if (_102 == 0.0)
+    float4 _102 = UniformBuffer.InverseViewProjection * float4((in.in_var_TEXCOORD0 * 2.0) - float2(1.0), 0.0, 1.0);
+    float _103 = _102.w;
+    float3 _115;
+    if (_103 == 0.0)
     {
-        _114 = fast::normalize(_101.xyz);
+        _115 = fast::normalize(_102.xyz);
     }
     else
     {
-        _114 = fast::normalize((_101.xyz / float3(_102)) - UniformBuffer_1.CameraPosition.xyz);
+        _115 = fast::normalize((_102.xyz / float3(_103)) - UniformBuffer_1.CameraPosition.xyz);
     }
-    float3 _116;
-    float3 _119;
-    float3 _121;
-    float3 _123;
-    float3 _125;
-    bool _127;
-    bool _129;
-    bool _131;
-    bool _133;
-    _116 = float3(0.0);
-    _119 = _80;
-    _121 = _80;
-    _123 = _80;
-    _125 = _80;
-    _127 = false;
-    _129 = false;
-    _131 = false;
-    _133 = false;
-    int _136;
     float3 _117;
     float3 _120;
     float3 _122;
@@ -118,174 +99,193 @@ fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& 
     bool _130;
     bool _132;
     bool _134;
-    for (int _135 = 0; _135 < 3; _116 = _117, _119 = _120, _121 = _122, _123 = _124, _125 = _126, _127 = _128, _129 = _130, _131 = _132, _133 = _134, _135 = _136)
+    _117 = float3(0.0);
+    _120 = _81;
+    _122 = _81;
+    _124 = _81;
+    _126 = _81;
+    _128 = false;
+    _130 = false;
+    _132 = false;
+    _134 = false;
+    int _137;
+    float3 _118;
+    float3 _121;
+    float3 _123;
+    float3 _125;
+    float3 _127;
+    bool _129;
+    bool _131;
+    bool _133;
+    bool _135;
+    for (int _136 = 0; _136 < 3; _117 = _118, _120 = _121, _122 = _123, _124 = _125, _126 = _127, _128 = _129, _130 = _131, _132 = _133, _134 = _135, _136 = _137)
     {
-        _136 = _135 + 1;
-        float3 _142 = _114 * (140.0 * float(_136));
-        float3 _143 = floor(_142);
-        float3 _145 = fract(_143 * float3(443.897003173828125, 441.423004150390625, 437.19500732421875));
-        float3 _150 = _145 + float3(dot(_145, _145.yzx + float3(19.1900005340576171875)));
-        float _156 = fract((_150.x + _150.y) * _150.z);
-        if (_156 > 0.964999973773956298828125)
+        _137 = _136 + 1;
+        float3 _143 = _115 * (140.0 * float(_137));
+        float3 _144 = floor(_143);
+        float3 _146 = fract(_144 * float3(443.897003173828125, 441.423004150390625, 437.19500732421875));
+        float3 _151 = _146 + float3(dot(_146, _146.yzx + float3(19.1900005340576171875)));
+        float _157 = fract((_151.x + _151.y) * _151.z);
+        if (_157 > 0.964999973773956298828125)
         {
-            bool _181;
-            float3 _183;
-            bool _184;
-            float3 _186;
-            bool _187;
-            float3 _189;
-            bool _190;
-            float3 _192;
-            float3 _167 = fract((_143 + float3(0.100000001490116119384765625)) * float3(443.897003173828125, 441.423004150390625, 437.19500732421875));
-            float3 _172 = _167 + float3(dot(_167, _167.yzx + float3(19.1900005340576171875)));
-            float _178 = fract((_172.x + _172.y) * _172.z);
-            float3 _212;
+            bool _182;
+            float3 _184;
+            bool _185;
+            float3 _187;
+            bool _188;
+            float3 _190;
+            bool _191;
+            float3 _193;
+            float3 _168 = fract((_144 + float3(0.100000001490116119384765625)) * float3(443.897003173828125, 441.423004150390625, 437.19500732421875));
+            float3 _173 = _168 + float3(dot(_168, _168.yzx + float3(19.1900005340576171875)));
+            float _179 = fract((_173.x + _173.y) * _173.z);
+            float3 _213;
             do
             {
-                _181 = _133 ? _133 : true;
-                _183 = select(float3(0.550000011920928955078125, 0.75, 1.0), _119, bool3(_133));
-                _184 = _131 ? _131 : true;
-                _186 = select(float3(1.0), _121, bool3(_131));
-                _187 = _129 ? _129 : true;
-                _189 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _125, bool3(_129));
-                _190 = _127 ? _127 : true;
-                _192 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _123, bool3(_127));
-                if (_178 < 0.25)
+                _182 = _134 ? _134 : true;
+                _184 = select(float3(0.550000011920928955078125, 0.75, 1.0), _120, bool3(_134));
+                _185 = _132 ? _132 : true;
+                _187 = select(float3(1.0), _122, bool3(_132));
+                _188 = _130 ? _130 : true;
+                _190 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _126, bool3(_130));
+                _191 = _128 ? _128 : true;
+                _193 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _124, bool3(_128));
+                if (_179 < 0.25)
                 {
-                    _212 = mix(_183, _186, float3(_178 * 4.0));
+                    _213 = mix(_184, _187, float3(_179 * 4.0));
                     break;
                 }
                 else
                 {
-                    if (_178 < 0.5)
+                    if (_179 < 0.5)
                     {
-                        _212 = mix(_186, _189, float3((_178 - 0.25) * 4.0));
+                        _213 = mix(_187, _190, float3((_179 - 0.25) * 4.0));
                         break;
                     }
                     else
                     {
-                        _212 = mix(_189, _192, float3((_178 - 0.5) * 2.0));
+                        _213 = mix(_190, _193, float3((_179 - 0.5) * 2.0));
                         break;
                     }
                     break; // unreachable workaround
                 }
                 break; // unreachable workaround
             } while(false);
-            _117 = _116 + (((_212 * ((_156 - 0.964999973773956298828125) * 28.571407318115234375)) * 4.0) * exp(length(_142 - (_143 + float3(0.5))) * (-18.0)));
-            _120 = _183;
-            _122 = _186;
-            _124 = _192;
-            _126 = _189;
-            _128 = _190;
-            _130 = _187;
-            _132 = _184;
-            _134 = _181;
+            _118 = _117 + (((_213 * ((_157 - 0.964999973773956298828125) * 28.571407318115234375)) * 4.0) * exp(length(_143 - (_144 + float3(0.5))) * (-18.0)));
+            _121 = _184;
+            _123 = _187;
+            _125 = _193;
+            _127 = _190;
+            _129 = _191;
+            _131 = _188;
+            _133 = _185;
+            _135 = _182;
         }
         else
         {
-            _117 = _116;
-            _120 = _119;
-            _122 = _121;
-            _124 = _123;
-            _126 = _125;
-            _128 = _127;
-            _130 = _129;
-            _132 = _131;
-            _134 = _133;
+            _118 = _117;
+            _121 = _120;
+            _123 = _122;
+            _125 = _124;
+            _127 = _126;
+            _129 = _128;
+            _131 = _130;
+            _133 = _132;
+            _135 = _134;
         }
     }
-    float _221 = dot(_114, float3(UniformBuffer_2.SunDirection));
-    bool _222 = _133 ? _133 : true;
-    bool _225 = _131 ? _131 : true;
-    float3 _227 = select(float3(1.0), _121, bool3(_131));
-    bool _228 = _129 ? _129 : true;
-    float3 _230 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _125, bool3(_129));
-    bool _231 = _127 ? _127 : true;
-    float3 _240;
-    float3 _243;
-    float3 _245;
-    float3 _247;
-    float3 _263;
-    _240 = select(float3(0.550000011920928955078125, 0.75, 1.0), _119, bool3(_133));
-    _243 = _227;
-    _245 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _123, bool3(_127));
-    _247 = _230;
-    _263 = _116 + ((mix(_227, _230, float3(0.7999999523162841796875)) * smoothstep(0.999800026416778564453125, 0.99989998340606689453125, _221)) * 20.0);
+    float _222 = dot(_115, float3(UniformBuffer_2.SunDirection));
+    bool _223 = _134 ? _134 : true;
+    bool _226 = _132 ? _132 : true;
+    float3 _228 = select(float3(1.0), _122, bool3(_132));
+    bool _229 = _130 ? _130 : true;
+    float3 _231 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _126, bool3(_130));
+    bool _232 = _128 ? _128 : true;
     float3 _241;
     float3 _244;
     float3 _246;
     float3 _248;
-    bool _250;
-    bool _252;
-    bool _254;
-    bool _256;
-    bool _258;
-    bool _260;
-    bool _262;
     float3 _264;
+    _241 = select(float3(0.550000011920928955078125, 0.75, 1.0), _120, bool3(_134));
+    _244 = _228;
+    _246 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _124, bool3(_128));
+    _248 = _231;
+    _264 = _117 + ((mix(_228, _231, float3(0.7999999523162841796875)) * smoothstep(0.999949991703033447265625, 0.99997997283935546875, _222)) * 20.0);
+    float3 _242;
+    float3 _245;
+    float3 _247;
+    float3 _249;
+    bool _251;
+    bool _253;
+    bool _255;
+    bool _257;
+    bool _259;
+    bool _261;
+    bool _263;
+    float3 _265;
     spvUnsafeArray<float, 3> kPowers;
     spvUnsafeArray<float, 3> kBVs;
     spvUnsafeArray<float, 3> kIntensities;
-    bool _249 = _231;
-    bool _251 = _228;
-    bool _253 = _225;
-    bool _255 = _222;
-    bool _257 = false;
-    bool _259 = false;
-    bool _261 = false;
-    int _265 = 0;
-    for (; _265 < 3; _240 = _241, _243 = _244, _245 = _246, _247 = _248, _249 = _250, _251 = _252, _253 = _254, _255 = _256, _257 = _258, _259 = _260, _261 = _262, _263 = _264, _265++)
+    bool _250 = _232;
+    bool _252 = _229;
+    bool _254 = _226;
+    bool _256 = _223;
+    bool _258 = false;
+    bool _260 = false;
+    bool _262 = false;
+    int _266 = 0;
+    for (; _266 < 3; _241 = _242, _244 = _245, _246 = _247, _248 = _249, _250 = _251, _252 = _253, _254 = _255, _256 = _257, _258 = _259, _260 = _261, _262 = _263, _264 = _265, _266++)
     {
-        if (!_261)
+        if (!_262)
         {
-            kPowers = _83;
+            kPowers = _84;
         }
-        _262 = _261 ? _261 : true;
-        if (!_259)
+        _263 = _262 ? _262 : true;
+        if (!_260)
         {
-            kBVs = _84;
+            kBVs = _85;
         }
-        _260 = _259 ? _259 : true;
-        if (!_257)
+        _261 = _260 ? _260 : true;
+        if (!_258)
         {
-            kIntensities = _85;
+            kIntensities = _86;
         }
-        _258 = _257 ? _257 : true;
-        float3 _303;
+        _259 = _258 ? _258 : true;
+        float3 _304;
         do
         {
-            _256 = _255 ? _255 : true;
-            _241 = select(float3(0.550000011920928955078125, 0.75, 1.0), _240, bool3(_255));
-            _254 = _253 ? _253 : true;
-            _244 = select(float3(1.0), _243, bool3(_253));
-            _252 = _251 ? _251 : true;
-            _248 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _247, bool3(_251));
-            _250 = _249 ? _249 : true;
-            _246 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _245, bool3(_249));
-            if (kBVs[_265] < 0.25)
+            _257 = _256 ? _256 : true;
+            _242 = select(float3(0.550000011920928955078125, 0.75, 1.0), _241, bool3(_256));
+            _255 = _254 ? _254 : true;
+            _245 = select(float3(1.0), _244, bool3(_254));
+            _253 = _252 ? _252 : true;
+            _249 = select(float3(1.0, 0.949999988079071044921875, 0.800000011920928955078125), _248, bool3(_252));
+            _251 = _250 ? _250 : true;
+            _247 = select(float3(1.0, 0.64999997615814208984375, 0.4000000059604644775390625), _246, bool3(_250));
+            if (kBVs[_266] < 0.25)
             {
-                _303 = mix(_241, _244, float3(kBVs[_265] * 4.0));
+                _304 = mix(_242, _245, float3(kBVs[_266] * 4.0));
                 break;
             }
             else
             {
-                if (kBVs[_265] < 0.5)
+                if (kBVs[_266] < 0.5)
                 {
-                    _303 = mix(_244, _248, float3((kBVs[_265] - 0.25) * 4.0));
+                    _304 = mix(_245, _249, float3((kBVs[_266] - 0.25) * 4.0));
                     break;
                 }
                 else
                 {
-                    _303 = mix(_248, _246, float3((kBVs[_265] - 0.5) * 2.0));
+                    _304 = mix(_249, _247, float3((kBVs[_266] - 0.5) * 2.0));
                     break;
                 }
                 break; // unreachable workaround
             }
             break; // unreachable workaround
         } while(false);
-        _264 = _263 + ((_303 * powr(precise::max(0.0, _221), kPowers[_265])) * kIntensities[_265]);
+        _265 = _264 + ((_304 * powr(precise::max(0.0, _222), kPowers[_266])) * kIntensities[_266]);
     }
-    out.out_var_SV_Target = float4(_263, 1.0);
+    out.out_var_SV_Target = float4(_264, 1.0);
     return out;
 }
 

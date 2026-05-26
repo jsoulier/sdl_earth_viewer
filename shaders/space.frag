@@ -81,11 +81,11 @@ float4 main(Input input) : SV_Target
     }
     float cosTheta = dot(rayDirection, SunDirection);
     float3 sunBaseColor = GetStarColor(0.45);
-    float sunDisc = smoothstep(0.9998, 0.9999, cosTheta);
+    float sunDisc = smoothstep(0.99995, 0.99998, cosTheta);
     color += sunDisc * sunBaseColor * 20.0;
     for (int j = 0; j < 3; j++)
     {
-        static const float kPowers[3] = {8000.0, 800.0, 20.0};
+        static const float kPowers[3] = {16000.0, 1600.0, 40.0};
         static const float kBVs[3] = {0.4, 0.7, 0.95};
         static const float kIntensities[3] = {10.0, 1.5, 0.3};
         color += pow(max(0.0, cosTheta), kPowers[j]) * GetStarColor(kBVs[j]) * kIntensities[j];

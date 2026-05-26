@@ -5,6 +5,7 @@
 #include <CesiumCurl/CurlAssetAccessor.h>
 #include <CesiumRasterOverlays/IonRasterOverlay.h>
 #include <CesiumUtility/CreditSystem.h>
+#include <nlohmann/json.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -20,7 +21,8 @@ class SDLTilesetConfig
 {
 public:
     SDLTilesetConfig();
-
+    static SDLTilesetConfig Load();
+    void Save() const;
     bool RenderImGui();
 
     Cesium3DTilesSelection::TilesetOptions TilesetOptions;

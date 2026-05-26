@@ -19,7 +19,6 @@
 #include <variant>
 #include <vector>
 
-#include "config.hpp"
 #include "prepare_renderer_resources.hpp"
 
 static SDL_GPUTexture* CreateTextureFromImage(SDL_GPUDevice* device, CesiumGltf::ImageAsset& image)
@@ -425,7 +424,7 @@ void SDLPrepareRendererResources::attachRasterInMainThread(
     const glm::dvec2& translation,
     const glm::dvec2& scale)
 {
-    if (overlayTextureCoordinateID != kRasterOverlayID)
+    if (overlayTextureCoordinateID != 0)
     {
         SDL_Log("Tried to attach an unsupported raster overlay");
         return;
@@ -454,7 +453,7 @@ void SDLPrepareRendererResources::detachRasterInMainThread(
     const CesiumRasterOverlays::RasterOverlayTile& rasterTile,
     void* pMainThreadRendererResources) noexcept
 {
-    if (overlayTextureCoordinateID != kRasterOverlayID)
+    if (overlayTextureCoordinateID != 0)
     {
         SDL_Log("Tried to detach an unsupported raster overlay");
         return;

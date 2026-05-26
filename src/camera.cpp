@@ -101,7 +101,7 @@ Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
 
 glm::dmat4 SDLCamera::GetProjMatrix() const
 {
-    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, kFar);
+    return CesiumGeometry::Transforms::createPerspectiveMatrix(GetFovX(), kFovY, kNear, glm::length(GetPosition()));
 }
 
 glm::dmat4 SDLCamera::GetViewMatrix() const
