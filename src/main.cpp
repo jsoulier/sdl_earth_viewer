@@ -231,10 +231,17 @@ static bool Init()
         SDL_Log("Failed to create window: %s", SDL_GetError());
         return false;
     }
+    SDL_GPUShaderFormat shaderFormats = 0
+        | SDL_GPU_SHADERFORMAT_SPIRV
+        | SDL_GPU_SHADERFORMAT_MSL
+#if !USE_DEBUG_GROUPS
+        | SDL_GPU_SHADERFORMAT_DXIL
+#endif
+        ;
 #ifndef NDEBUG
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
+    device = SDL_CreateGPUDevice(shaderFormats, true, nullptr);
 #else
-    device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, nullptr);
+    device = SDL_CreateGPUDevice(shaderFormats, false, nullptr);
 #endif
     if (!device)
     {
@@ -343,6 +350,19 @@ static bool Resize(uint32_t width, uint32_t height)
     info.height = height;
     info.layer_count_or_depth = 1;
     info.num_levels = 1;
+    // TODO:
+    //
+    // Round 1:
+    // I have no fucking clue what's going on. Firstly, this is a bug. It's missing SAMPLER on it.
+    // If I add SAMPLER, it causes a bunch of large artifacts on tile boundaries. I don't know why. I tried outputting
+    // a color texture so that I could bind it as a GRAPHICS_STORAGE_READ but again, artifacts. If I create a texture
+    // that's readable, it causes artifacts.
+    //
+    // Round 2:
+    // SDL GPU has a beautiful line in Vulkan:
+    // currentWriteDescriptorSet->descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE; // Yes, we are declaring the readonly storage texture as a sampled image, because shaders are stupid.
+    // So my storage textures are sampled images. That's probably changing the internal format.
+    //
     info.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
     depthTexture = SDL_CreateGPUTexture(device, &info);
     if (!depthTexture)
@@ -436,7 +456,7 @@ static void Render()
                     const glm::mat4 model = glm::mat4(primitive.Transform);
                     glm::vec4 rasterData = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
                     int32_t tileType = -1;
-                    if (primitive.BaseColorTexture && primitive.BaseColorTexture)
+                    if (primitive.BaseColorTexture)
                     {
                         samplerBinding.texture = primitive.BaseColorTexture;
                         tileType = 0;
