@@ -239,13 +239,13 @@ static bool Init()
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
 #endif
     Cesium3DTilesContent::registerAllTileContentTypes();
-    SDL_SetAppMetadata("SDL Earth", nullptr, nullptr);
+    SDL_SetAppMetadata("SDL Earth Viewer", nullptr, nullptr);
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
         return false;
     }
-    window = SDL_CreateWindow("SDL Earth", 960, 720, SDL_WINDOW_HIDDEN);
+    window = SDL_CreateWindow("SDL Earth Viewer", 960, 720, SDL_WINDOW_HIDDEN);
     if (!window)
     {
         SDL_Log("Failed to create window: %s", SDL_GetError());

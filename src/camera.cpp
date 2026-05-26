@@ -15,32 +15,11 @@ static constexpr double kMaxPitch = glm::pi<double>() / 2.0 - 0.001;
 static constexpr double kNear = 1.0;
 static constexpr double kFar = kNear * 1e8;
 static constexpr double kEarthRadius = 6378.137e3;
-static constexpr double kMinDistance = 1.0;
 static constexpr double kArcSpeed = 0.1e-9;
 static constexpr double kPanSpeed = 0.001;
 static constexpr double kZoomSpeed = 0.1;
+static constexpr double kMinSpeed = 100.0;
 static constexpr double kFovY = glm::radians(45.0);
-
-static double GetMinDistance(const glm::dvec3& target, double yaw, double pitch)
-{
-    const double cosPitch = std::cos(pitch);
-    const double cosYaw = std::cos(yaw);
-    const double sinPitch = std::sin(pitch);
-    const double sinYaw = std::sin(yaw);
-    const glm::dvec3 direction{cosPitch * cosYaw, cosPitch * sinYaw, sinPitch};
-    const double minRadius = kEarthRadius + kMinDistance;
-    const double b = 2.0 * glm::dot(target, direction);
-    const double c = glm::dot(target, target) - minRadius * minRadius;
-    const double discriminant = b * b - 4.0 * c;
-    if (discriminant < 0.0)
-    {
-        return 0.0;
-    }
-    const double sqrtDiscriminant = std::sqrt(discriminant);
-    const double t0 = (-b - sqrtDiscriminant) * 0.5;
-    const double t1 = (-b + sqrtDiscriminant) * 0.5;
-    return std::max(0.0, std::max(t0, t1));
-}
 
 SDLCamera::SDLCamera()
     : Target{0.0, 0.0, 0.0}
@@ -58,7 +37,7 @@ void SDLCamera::Handle(const SDL_Event& event)
     const glm::dvec3 right = glm::normalize(glm::cross(forward, kUp));
     const glm::dvec3 up = glm::normalize(glm::cross(right, forward));
     const double altitude = glm::length(GetPosition()) - kEarthRadius;
-    const double speed = std::max(kMinDistance, altitude);
+    const double speed = std::max(kMinSpeed, altitude);
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_MOTION:
@@ -78,7 +57,6 @@ void SDLCamera::Handle(const SDL_Event& event)
     case SDL_EVENT_MOUSE_WHEEL:
     {
         Distance -= event.wheel.y * speed * kZoomSpeed;
-        Distance = std::max(Distance, GetMinDistance(Target, Yaw, Pitch));
         break;
     }
     }
@@ -91,7 +69,7 @@ void SDLCamera::Resize(uint32_t width, uint32_t height)
 
 bool SDLCamera::IsValid() const
 {
-    return Viewport.x != 0 && Viewport.y != 0;
+    return Viewport.x > 0 && Viewport.y > 0;
 }
 
 Cesium3DTilesSelection::ViewState SDLCamera::GetViewState() const
