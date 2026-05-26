@@ -186,7 +186,7 @@ bool SDLTilesetConfig::RenderImGui()
         Save();
     }
     ImGui::SameLine();
-    return ImGui::Button("Recreate Tileset");
+    return ImGui::Button("Recreate");
 }
 
 SDLTileset::SDLTileset()
