@@ -25,6 +25,7 @@ static SDL_GPUTexture* depthTexture;
 static SDL_GPUGraphicsPipeline* tilesetPipeline;
 static SDL_GPUGraphicsPipeline* axesPipeline;
 static SDL_GPUGraphicsPipeline* atmospherePipeline;
+static SDL_GPUGraphicsPipeline* spacePipeline;
 static SDL_GPUTexture* defaultTexture;
 static SDL_GPUSampler* defaultSampler;
 static std::shared_ptr<SDLPrepareRendererResources> prepareRendererResources;
@@ -37,6 +38,7 @@ static uint64_t time2;
 static float dt;
 static bool drawDebugAxes = false;
 static bool drawAtmosphere = true;
+static bool drawSpace = true;
 
 static bool CreateTilesetPipeline()
 {
@@ -116,7 +118,7 @@ static bool CreateAtmospherePipeline()
     targets[0].blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
     targets[0].blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
     SDL_GPUGraphicsPipelineCreateInfo info{};
-    info.vertex_shader = LoadShader(device, "atmosphere.vert");
+    info.vertex_shader = LoadShader(device, "fullscreen.vert");
     info.fragment_shader = LoadShader(device, "atmosphere.frag");
     info.target_info.num_color_targets = 1;
     info.target_info.color_target_descriptions = targets;
@@ -128,6 +130,25 @@ static bool CreateAtmospherePipeline()
     SDL_ReleaseGPUShader(device, info.vertex_shader);
     SDL_ReleaseGPUShader(device, info.fragment_shader);
     return atmospherePipeline != nullptr;
+}
+
+static bool CreateSpacePipeline()
+{
+    SDL_GPUColorTargetDescription targets[1]{};
+    targets[0].format = SDL_GetGPUSwapchainTextureFormat(device, window);
+    SDL_GPUGraphicsPipelineCreateInfo info{};
+    info.vertex_shader = LoadShader(device, "fullscreen.vert");
+    info.fragment_shader = LoadShader(device, "space.frag");
+    info.target_info.num_color_targets = 1;
+    info.target_info.color_target_descriptions = targets;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    if (info.vertex_shader && info.fragment_shader)
+    {
+        spacePipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
+    }
+    SDL_ReleaseGPUShader(device, info.vertex_shader);
+    SDL_ReleaseGPUShader(device, info.fragment_shader);
+    return spacePipeline != nullptr;
 }
 
 static bool CreateDefaultRasterOverlay()
@@ -285,6 +306,11 @@ static bool Init()
         SDL_Log("Failed to create atmosphere pipeline");
         return false;
     }
+    if (!CreateSpacePipeline())
+    {
+        SDL_Log("Failed to create space pipeline");
+        return false;
+    }
     if (!CreateDefaultRasterOverlay())
     {
         SDL_Log("Failed to create default raster overlay");
@@ -308,6 +334,7 @@ static void Quit()
     SDL_ReleaseGPUGraphicsPipeline(device, tilesetPipeline);
     SDL_ReleaseGPUGraphicsPipeline(device, axesPipeline);
     SDL_ReleaseGPUGraphicsPipeline(device, atmospherePipeline);
+    SDL_ReleaseGPUGraphicsPipeline(device, spacePipeline);
     SDL_ReleaseGPUTexture(device, depthTexture);
     SDL_ReleaseGPUTexture(device, defaultTexture);
     SDL_ReleaseGPUSampler(device, defaultSampler);
@@ -400,12 +427,47 @@ static void Render()
         colorInfo.texture = swapchainTexture;
         colorInfo.load_op = SDL_GPU_LOADOP_CLEAR;
         colorInfo.store_op = SDL_GPU_STOREOP_STORE;
+        colorInfo.clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
         SDL_GPUDepthStencilTargetInfo depthInfo{};
         depthInfo.texture = depthTexture;
         depthInfo.load_op = SDL_GPU_LOADOP_CLEAR;
         depthInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR;
         depthInfo.store_op = SDL_GPU_STOREOP_STORE;
         depthInfo.clear_depth = 0.0f;
+        SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorInfo, 1, &depthInfo);
+        if (renderPass)
+        {
+            SDL_EndGPURenderPass(renderPass);
+        }
+    }
+    if (drawSpace)
+    {
+        DebugGroupBlock(commandBuffer, "Render::Space");
+        SDL_GPUColorTargetInfo colorInfo{};
+        colorInfo.texture = swapchainTexture;
+        colorInfo.load_op = SDL_GPU_LOADOP_LOAD;
+        colorInfo.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorInfo, 1, nullptr);
+        if (renderPass)
+        {
+            SDL_BindGPUGraphicsPipeline(renderPass, spacePipeline);
+            SDL_PushGPUFragmentUniformData(commandBuffer, 0, &inverseViewProj, sizeof(inverseViewProj));
+            SDL_PushGPUFragmentUniformData(commandBuffer, 1, &cameraPosition, sizeof(cameraPosition));
+            SDL_PushGPUFragmentUniformData(commandBuffer, 2, &sunDirection, sizeof(sunDirection));
+            SDL_DrawGPUPrimitives(renderPass, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(renderPass);
+        }
+    }
+    {
+        SDL_GPUColorTargetInfo colorInfo{};
+        colorInfo.texture = swapchainTexture;
+        colorInfo.load_op = SDL_GPU_LOADOP_LOAD;
+        colorInfo.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPUDepthStencilTargetInfo depthInfo{};
+        depthInfo.texture = depthTexture;
+        depthInfo.load_op = SDL_GPU_LOADOP_LOAD;
+        depthInfo.stencil_load_op = SDL_GPU_LOADOP_LOAD;
+        depthInfo.store_op = SDL_GPU_STOREOP_STORE;
         SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(commandBuffer, &colorInfo, 1, &depthInfo);
         if (!renderPass)
         {
@@ -550,6 +612,7 @@ static void Render()
         ImGui::SeparatorText("Environment");
         ImGui::TextDisabled("Red: X, Green: Y, Blue: Z");
         ImGui::Checkbox("Draw Axes", &drawDebugAxes);
+        ImGui::Checkbox("Draw Space", &drawSpace);
         ImGui::Checkbox("Draw Atmosphere", &drawAtmosphere);
         if (ImGui::DragFloat3("Sun Direction", &sunDirection.x, 0.01f, -1.0f, 1.0f))
         {
