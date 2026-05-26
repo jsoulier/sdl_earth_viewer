@@ -19,7 +19,7 @@ struct type_UniformBuffer_2
     float Padding0;
 };
 
-constant bool _53 = {};
+constant bool _45 = {};
 
 struct main0_out
 {
@@ -31,206 +31,191 @@ struct main0_in
     float2 in_var_TEXCOORD0 [[user(locn0)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]], constant type_UniformBuffer_1& UniformBuffer_1 [[buffer(1)]], constant type_UniformBuffer_2& UniformBuffer_2 [[buffer(2)]], texture2d<float> DepthTexture [[texture(0)]], sampler DepthSampler [[sampler(0)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant type_UniformBuffer& UniformBuffer [[buffer(0)]], constant type_UniformBuffer_1& UniformBuffer_1 [[buffer(1)]], constant type_UniformBuffer_2& UniformBuffer_2 [[buffer(2)]])
 {
     main0_out out = {};
-    float4 _258;
+    float4 _233;
     do
     {
-        float4 _77 = DepthTexture.sample(DepthSampler, in.in_var_TEXCOORD0);
-        float _78 = _77.x;
-        float2 _80 = (in.in_var_TEXCOORD0 * 2.0) - float2(1.0);
-        float _86 = _80.x;
-        float4 _89 = UniformBuffer.InverseViewProjection * float4(_86, _80.y, 0.0, 1.0);
-        float _90 = _89.w;
-        float3 _102;
-        if (_90 == 0.0)
+        float4 _76 = UniformBuffer.InverseViewProjection * float4((in.in_var_TEXCOORD0 * 2.0) - float2(1.0), 0.0, 1.0);
+        float _77 = _76.w;
+        float3 _89;
+        if (_77 == 0.0)
         {
-            _102 = fast::normalize(_89.xyz);
+            _89 = fast::normalize(_76.xyz);
         }
         else
         {
-            _102 = fast::normalize((_89.xyz / float3(_90)) - UniformBuffer_1.CameraPosition.xyz);
+            _89 = fast::normalize((_76.xyz / float3(_77)) - UniformBuffer_1.CameraPosition.xyz);
         }
-        float _115;
-        if (_78 == 0.0)
-        {
-            _115 = 999999995904.0;
-        }
-        else
-        {
-            float4 _108 = UniformBuffer.InverseViewProjection * float4(_86, _80.y, _78, 1.0);
-            _115 = length((_108.xyz / float3(_108.w)) - UniformBuffer_1.CameraPosition.xyz);
-        }
-        float _119;
-        float _122;
-        float _131;
-        float _132;
-        bool _133;
+        float _93;
+        float _96;
+        float _105;
+        float _106;
+        bool _107;
         do
         {
-            float3 _118 = -UniformBuffer_1.CameraPosition.xyz;
-            _119 = dot(_118, _102);
-            _122 = dot(_118, _118) - (_119 * _119);
-            if (_122 > 41966259666944.0)
+            float3 _92 = -UniformBuffer_1.CameraPosition.xyz;
+            _93 = dot(_92, _89);
+            _96 = dot(_92, _92) - (_93 * _93);
+            if (_96 > 41966259666944.0)
             {
-                _131 = 0.0;
-                _132 = 0.0;
-                _133 = false;
+                _105 = 0.0;
+                _106 = 0.0;
+                _107 = false;
                 break;
             }
-            float _128 = sqrt(precise::max(0.0, 41966259666944.0 - _122));
-            _131 = _119 + _128;
-            _132 = _119 - _128;
-            _133 = true;
+            float _102 = sqrt(precise::max(0.0, 41966259666944.0 - _96));
+            _105 = _93 + _102;
+            _106 = _93 - _102;
+            _107 = true;
             break;
         } while(false);
-        if (!_133)
+        if (!_107)
         {
-            _258 = float4(0.0);
+            _233 = float4(0.0);
             break;
         }
-        float _137 = precise::max(0.0, _132);
-        float _138 = precise::min(_131, _115);
-        float _148;
-        bool _149;
+        float _111 = precise::max(0.0, _106);
+        float _121;
+        bool _122;
         do
         {
-            if (_122 > 40680629993472.0)
+            if (_96 > 40680629993472.0)
             {
-                _148 = 0.0;
-                _149 = false;
+                _121 = 0.0;
+                _122 = false;
                 break;
             }
-            _148 = _119 - sqrt(precise::max(0.0, 40680629993472.0 - _122));
-            _149 = true;
+            _121 = _93 - sqrt(precise::max(0.0, 40680629993472.0 - _96));
+            _122 = true;
             break;
         } while(false);
-        float _157;
-        if (_149)
+        float _130;
+        if (_122)
         {
-            float _156;
-            if (_148 > 0.0)
+            float _129;
+            if (_121 > 0.0)
             {
-                _156 = precise::min(_138, _148);
+                _129 = precise::min(_105, _121);
             }
             else
             {
-                _156 = _138;
+                _129 = _105;
             }
-            _157 = _156;
+            _130 = _129;
         }
         else
         {
-            _157 = _138;
+            _130 = _105;
         }
-        if (_137 >= _157)
+        if (_111 >= _130)
         {
-            _258 = float4(0.0);
+            _233 = float4(0.0);
             break;
         }
-        float _163 = dot(_102, float3(UniformBuffer_2.SunDirection));
-        float _167 = _157 - _137;
-        float _168 = _167 * 0.0625;
-        float3 _177;
-        _177 = float3(0.0);
-        float _174;
-        float _176;
-        bool _171;
-        float3 _178;
-        bool _170;
-        float _173 = 0.0;
-        float _175 = _137;
-        int _179 = 0;
-        for (; _179 < 16; _170 = _171, _173 = _174, _175 = _176, _177 = _178, _179++)
+        float _136 = dot(_89, float3(UniformBuffer_2.SunDirection));
+        float _140 = _130 - _111;
+        float _141 = _140 * 0.0625;
+        float3 _150;
+        _150 = float3(0.0);
+        float _147;
+        float _149;
+        bool _144;
+        float3 _151;
+        bool _143;
+        float _146 = 0.0;
+        float _148 = _111;
+        int _152 = 0;
+        for (; float(_152) < 16.0; _143 = _144, _146 = _147, _148 = _149, _150 = _151, _152++)
         {
-            float3 _187 = UniformBuffer_1.CameraPosition.xyz + (_102 * (_175 + (_167 * 0.03125)));
-            float _193 = exp(precise::max(0.0, length(_187) - 6378137.0) * (-0.00012500000593718141317367553710938)) * _168;
-            _174 = _173 + _193;
-            float _243;
+            float3 _161 = UniformBuffer_1.CameraPosition.xyz + (_89 * (_148 + (_140 * 0.03125)));
+            float _167 = exp(precise::max(0.0, length(_161) - 6378137.0) * (-0.00012500000593718141317367553710938)) * _141;
+            _147 = _146 + _167;
+            float _218;
             do
             {
-                float _210;
-                bool _211;
+                float _184;
+                bool _185;
                 do
                 {
-                    float3 _198 = -_187;
-                    float _199 = dot(_198, float3(UniformBuffer_2.SunDirection));
-                    float _202 = dot(_198, _198) - (_199 * _199);
-                    if (_202 > 41966259666944.0)
+                    float3 _172 = -_161;
+                    float _173 = dot(_172, float3(UniformBuffer_2.SunDirection));
+                    float _176 = dot(_172, _172) - (_173 * _173);
+                    if (_176 > 41966259666944.0)
                     {
-                        _210 = 0.0;
-                        _211 = false;
+                        _184 = 0.0;
+                        _185 = false;
                         break;
                     }
-                    _210 = _199 + sqrt(precise::max(0.0, 41966259666944.0 - _202));
-                    _211 = true;
+                    _184 = _173 + sqrt(precise::max(0.0, 41966259666944.0 - _176));
+                    _185 = true;
                     break;
                 } while(false);
-                if (!_211)
+                if (!_185)
                 {
-                    _243 = 0.0;
-                    _171 = false;
+                    _218 = 0.0;
+                    _144 = false;
                     break;
                 }
-                float _215 = _210 * 0.125;
-                float _217;
-                _217 = 0.0;
-                float _218;
-                float _221;
-                bool _240;
-                bool _241;
-                float _220 = 0.0;
-                int _222 = 0;
+                float _189 = _184 * 0.125;
+                float _191;
+                _191 = 0.0;
+                float _192;
+                float _195;
+                bool _215;
+                bool _216;
+                float _194 = 0.0;
+                int _196 = 0;
                 for (;;)
                 {
-                    if (_222 < 8)
+                    if (float(_196) < 8.0)
                     {
-                        float _231 = length(_187 + (float3(UniformBuffer_2.SunDirection) * (_220 + (_210 * 0.0625))));
-                        if ((_231 - 6378137.0) < 0.0)
+                        float _206 = length(_161 + (float3(UniformBuffer_2.SunDirection) * (_194 + (_184 * 0.0625))));
+                        if ((_206 - 6378137.0) < 0.0)
                         {
-                            _240 = false;
-                            _241 = true;
+                            _215 = false;
+                            _216 = true;
                             break;
                         }
-                        _218 = _217 + (exp((6378137.0 - _231) * 0.00012500000593718141317367553710938) * _215);
-                        _221 = _220 + _215;
-                        _217 = _218;
-                        _220 = _221;
-                        _222++;
+                        _192 = _191 + (exp((6378137.0 - _206) * 0.00012500000593718141317367553710938) * _189);
+                        _195 = _194 + _189;
+                        _191 = _192;
+                        _194 = _195;
+                        _196++;
                         continue;
                     }
                     else
                     {
-                        _240 = _170;
-                        _241 = false;
+                        _215 = _143;
+                        _216 = false;
                         break;
                     }
                 }
-                if (_241)
+                if (_216)
                 {
-                    _243 = _217;
-                    _171 = _240;
+                    _218 = _191;
+                    _144 = _215;
                     break;
                 }
-                _243 = _217;
-                _171 = true;
+                _218 = _191;
+                _144 = true;
                 break;
             } while(false);
-            if (_171)
+            if (_144)
             {
-                _178 = _177 + (exp(float3(-5.8000000535685103386640548706055e-06, -1.3500000022759195417165756225586e-05, -3.3099997381214052438735961914062e-05) * (_243 + _174)) * _193);
+                _151 = _150 + (exp(float3(-5.8000000535685103386640548706055e-06, -1.3500000022759195417165756225586e-05, -3.3099997381214052438735961914062e-05) * (_218 + _147)) * _167);
             }
             else
             {
-                _178 = _177;
+                _151 = _150;
             }
-            _176 = _175 + _168;
+            _149 = _148 + _141;
         }
-        _258 = float4(fast::clamp((float3(0.00011600000289035961031913757324219, 0.00026999998954124748706817626953125, 0.000661999918520450592041015625) * (0.0596831031143665313720703125 * (1.0 + (_163 * _163)))) * _177, float3(0.0), float3(10.0)), 1.0);
+        _233 = float4(fast::clamp((float3(0.00011600000289035961031913757324219, 0.00026999998954124748706817626953125, 0.000661999918520450592041015625) * (0.0596831031143665313720703125 * (1.0 + (_136 * _136)))) * _150, float3(0.0), float3(10.0)), 1.0);
         break;
     } while(false);
-    out.out_var_SV_Target = _258;
+    out.out_var_SV_Target = _233;
     return out;
 }
 

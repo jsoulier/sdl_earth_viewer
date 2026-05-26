@@ -7,9 +7,6 @@ struct Input
     float2 TexCoord : TEXCOORD0;
 };
 
-Texture2D DepthTexture : register(t0, space2);
-SamplerState DepthSampler : register(s0, space2);
-
 cbuffer UniformBuffer : register(b0, space3)
 {
     float4x4 InverseViewProjection;
@@ -29,8 +26,8 @@ cbuffer UniformBuffer : register(b2, space3)
 static const float kPI = 3.14159265359;
 static const float kSunIntensity = 20.0;
 static const float3 kScatteringCoefficient = float3(5.8, 13.5, 33.1) * 1e-6;
-static const int kViewSamples = 16;
-static const int kLightSamples = 8;
+static const float kViewSamples = 16.0;
+static const float kLightSamples = 8.0;
 static const float3 kPlanetCenter = float3(0, 0, 0);
 static const float kPlanetRadius = 6378137.0;
 static const float kAtmosphereRadius = 6478137.0;
@@ -63,7 +60,7 @@ bool LightSampling(float3 P, float3 S, out float opticalDepthCP)
         return false;
     }
     float distanceToExit = t1;
-    float ds = distanceToExit / (float)kLightSamples;
+    float ds = distanceToExit / kLightSamples;
     float time = 0;
     opticalDepthCP = 0;
     for (int i = 0; i < kLightSamples; i++)
@@ -87,7 +84,7 @@ float3 CalculateAtmosphericScattering(float3 O, float3 D, float tA, float tB, fl
     float3 totalViewSamples = float3(0, 0, 0);
     float opticalDepthPA = 0;
     float time = tA;
-    float ds = (tB - tA) / (float)kViewSamples;
+    float ds = (tB - tA) / kViewSamples;
     for (int i = 0; i < kViewSamples; i++)
     {
         float3 P = O + D * (time + ds * 0.5);
@@ -107,9 +104,7 @@ float3 CalculateAtmosphericScattering(float3 O, float3 D, float tA, float tB, fl
 
 float4 main(Input input) : SV_Target
 {
-    float rawDepth = DepthTexture.Sample(DepthSampler, input.TexCoord).r;
     float2 screenPosition = input.TexCoord * 2.0 - 1.0;
-    // screenPosition.y = -screenPosition.y;
     float3 rayOrigin = CameraPosition.xyz;
     float4 farWorldFull = mul(InverseViewProjection, float4(screenPosition, 0.0, 1.0));
     float3 rayDirection;
@@ -121,16 +116,6 @@ float4 main(Input input) : SV_Target
     {
         rayDirection = normalize(farWorldFull.xyz / farWorldFull.w - rayOrigin);
     }
-    float sceneDistance;
-    if (rawDepth == 0.0)
-    {
-        sceneDistance = 1e12;
-    }
-    else
-    {
-        float4 worldPositionFull = mul(InverseViewProjection, float4(screenPosition, rawDepth, 1.0));
-        sceneDistance = length(worldPositionFull.xyz / worldPositionFull.w - rayOrigin);
-    }
     float t0;
     float t1;
     if (!RayIntersect(rayOrigin, rayDirection, kPlanetCenter, kAtmosphereRadius, t0, t1))
@@ -138,7 +123,7 @@ float4 main(Input input) : SV_Target
         return float4(0, 0, 0, 0);
     }
     float tA = max(0.0, t0);
-    float tB = min(t1, sceneDistance);
+    float tB = t1;
     float tp0;
     float tp1;
     if (RayIntersect(rayOrigin, rayDirection, kPlanetCenter, kPlanetRadius, tp0, tp1))
