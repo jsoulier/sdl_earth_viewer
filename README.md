@@ -41,6 +41,10 @@ Cesium Ion comes with free assets. To reference the assets:
 4. For 3D tiles, use ID for "Ion Asset ID" and `-1` for "Ion Imagery ID"
 5. You can grab more maps from the [Asset Depot](https://ion.cesium.com/assetdepot) but I haven't tested it much
 
+### Building
+
+Follow the vcpkg instructions from [Cesium](https://cesium.com/learn/cesium-native/ref-doc/developer-setup.html#vcpkg)
+
 #### Windows
 
 ```bash
