@@ -8,7 +8,7 @@
 SDLTaskProcessor::SDLTaskProcessor()
     : Stop{false}
 {
-    static const int kNumThreads = std::thread::hardware_concurrency();
+    static const int kNumThreads = std::max(1u, std::thread::hardware_concurrency());
     for (int i = 0; i < kNumThreads; i++)
     {
         Workers.emplace_back([this]()
